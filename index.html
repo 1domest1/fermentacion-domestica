@@ -174,11 +174,8 @@ function extractWikilinks(body){ const out=[]; let m; WIKI.lastIndex=0; while((m
 function flatten(chs){ const out=[]; const w=l=>{for(const c of l){out.push(c); if(c.children)w(c.children);}}; w(chs); return out; }
 const IMG=/^!\[([^\]]*)\]\(([^)]+)\)\s*$/, VID=/^@video\[([^\]]*)\]\(([^)]+)\)\s*$/;
 function parseBody(body){
-  const lines=body.replace(/\r
-/g,'
-').split('
-'); const blocks=[]; let para=[];
-  const flush=()=>{const t=para.join(' ').trim(); if(t)blocks.push({kind:'p',text:t}); para=[];};
+const lines=body.split(String.fromCharCode(10)); const blocks=[]; let para=[]; 
+ const flush=()=>{const t=para.join(' ').trim(); if(t)blocks.push({kind:'p',text:t}); para=[];};
   for(const raw of lines){ const line=raw.replace(/\s+$/,'');
     if(!line.trim()){flush();continue;}
     let mm;
