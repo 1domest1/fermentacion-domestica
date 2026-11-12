@@ -223,43 +223,50 @@ const KIND_LABELS = { concepto:'Concepto', autor:'Autor', teoria:'Teoría', meto
 const ALL_KINDS = ['concepto','autor','teoria','metodo','categoria','material'];
 
 // ===========================================================================
-// REGIONES DE COLOMBIA (cruce geográfico) + repertorio de fermentación
+// LOCALIDADES DE BOGOTÁ (cruce geográfico fino) + repertorio de fermentación
 //
-// Datos demográficos:
-//   deptId   : id del departamento en API-Colombia (población y superficie EN VIVO)
-//   dept     : nombre del departamento representativo
-//   poverty  : pobreza monetaria 2023 (%) — proxy de HAMBRE / inseguridad (DANE)
-// La densidad (proxy de SOBREPOBLACIÓN) se calcula en vivo como población/superficie
-// con datos reales de https://api-colombia.com. La pobreza es del DANE (2023),
-// que API-Colombia no provee, y se usa como dato de referencia citado.
+// Datos por localidad (fuentes: Wikipedia/DANE - proyecciones y Censo 2018;
+// vulnerabilidad = proxy de hambre a partir de estrato/pobreza por localidad):
+//   lat, lon  : centroide aprox. de la localidad (para clima y proximidad)
+//   density   : densidad poblacional real (hab/km²) — SOBREPOBLACIÓN
+//   poverty   : vulnerabilidad/pobreza aprox. (%) — proxy de HAMBRE
+//   homeSize  : tamaño medio de vivienda (m²) aprox. por estrato
+// Clima: todas en Bogotá (andino frío); el repertorio de fermentos es común,
+// con variaciones menores por localidad. Huertas y pacas se anclan con
+// coordenadas reales para calcular la MÁS CERCANA.
 // ===========================================================================
-// Cada fermento lleva su TIPO de fermentación bioquímica:
-//   alcoholica | lactica | acetica | propionica | butirica
-const REGIONS = [
-  { id:'caribe', name:'Caribe', city:'Barranquilla', lat:10.96, lon:-74.8,
-    deptId:4, dept:'Atlántico', poverty:35, homeSize:95,
-    fruitFerments:[{product:'mango',method:'tepache de mango',type:'alcoholica'},{product:'corozo',method:'vino de corozo',type:'alcoholica'},{product:'níspero',method:'pulpa fermentada',type:'lactica'}],
-    vegFerments:[{product:'yuca',method:'masa agria (casabe)',type:'lactica'},{product:'ñame',method:'fermentado láctico',type:'lactica'},{product:'suero costeño',method:'leche fermentada',type:'lactica'}] },
-  { id:'andina-fria', name:'Andina (altiplano frío)', city:'Bogotá', lat:4.61, lon:-74.08,
-    deptId:5, dept:'Bogotá D.C.', poverty:30, homeSize:72,
-    fruitFerments:[{product:'uchuva',method:'kombucha de uchuva',type:'acetica'},{product:'curuba',method:'vinagre de curuba',type:'acetica'},{product:'manzana',method:'sidra lenta',type:'alcoholica'}],
-    vegFerments:[{product:'repollo',method:'chucrut (lento)',type:'lactica'},{product:'cubio',method:'cubio soleado y fermentado',type:'lactica'},{product:'hibia',method:'encurtido láctico',type:'lactica'}] },
-  { id:'andina-cafe', name:'Andina (zona cafetera)', city:'Manizales', lat:5.07, lon:-75.52,
-    deptId:8, dept:'Caldas', poverty:27, homeSize:88,
-    fruitFerments:[{product:'café',method:'fermentación de la pulpa (honey/natural)',type:'lactica'},{product:'mora',method:'vino de mora',type:'alcoholica'},{product:'lulo',method:'kombucha de lulo',type:'acetica'}],
-    vegFerments:[{product:'plátano',method:'vinagre de plátano',type:'acetica'},{product:'arracacha',method:'encurtido láctico',type:'lactica'},{product:'cidra',method:'fermentado suave',type:'lactica'}] },
-  { id:'pacifico', name:'Pacífico', city:'Quibdó', lat:5.69, lon:-76.66,
-    deptId:13, dept:'Chocó', poverty:68, homeSize:62,
-    fruitFerments:[{product:'borojó',method:'bebida fermentada de borojó',type:'alcoholica'},{product:'chontaduro',method:'masa fermentada',type:'lactica'},{product:'banano',method:'vinagre de banano',type:'acetica'}],
-    vegFerments:[{product:'yuca brava',method:'fermentación detoxificante',type:'lactica'},{product:'ñame',method:'fermentado láctico',type:'lactica'},{product:'achín',method:'encurtido',type:'lactica'}] },
-  { id:'amazonia', name:'Amazonía', city:'Leticia', lat:-4.21, lon:-69.94,
-    deptId:1, dept:'Amazonas', poverty:40, homeSize:58,
-    fruitFerments:[{product:'copoazú',method:'pulpa fermentada',type:'lactica'},{product:'arazá',method:'vino de arazá',type:'alcoholica'},{product:'asaí',method:'fermentado de asaí',type:'lactica'}],
-    vegFerments:[{product:'yuca brava',method:'chicha / fariña fermentada',type:'alcoholica'},{product:'ají negro',method:'tucupí',type:'lactica'},{product:'ñame',method:'fermentado láctico',type:'lactica'}] },
-  { id:'orinoquia', name:'Orinoquía (Llanos)', city:'Villavicencio', lat:4.15, lon:-73.63,
-    deptId:21, dept:'Meta', poverty:30, homeSize:98,
-    fruitFerments:[{product:'mango',method:'tepache de mango',type:'alcoholica'},{product:'marañón',method:'vino de marañón',type:'alcoholica'},{product:'cítricos',method:'vinagre cítrico',type:'acetica'}],
-    vegFerments:[{product:'yuca',method:'masato de yuca',type:'alcoholica'},{product:'maíz',method:'chicha de maíz',type:'alcoholica'},{product:'topocho',method:'vinagre de plátano',type:'acetica'}] },
+const LOCALITIES = [
+  { id:'usaquen', name:'Usaquén', lat:4.7030, lon:-74.0300, density:7686, poverty:18, homeSize:85 },
+  { id:'chapinero', name:'Chapinero', lat:4.6560, lon:-74.0630, density:3904, poverty:15, homeSize:92 },
+  { id:'santafe', name:'Santa Fe', lat:4.6080, lon:-74.0760, density:2436, poverty:34, homeSize:60 },
+  { id:'sancristobal', name:'San Cristóbal', lat:4.5570, lon:-74.0820, density:8244, poverty:42, homeSize:55 },
+  { id:'usme', name:'Usme', lat:4.4790, lon:-74.1260, density:3729, poverty:46, homeSize:52 },
+  { id:'teusaquillo', name:'Teusaquillo', lat:4.6310, lon:-74.0920, density:8500, poverty:12, homeSize:95 },
+  { id:'martires', name:'Los Mártires', lat:4.6040, lon:-74.0900, density:15226, poverty:33, homeSize:58 },
+  { id:'antonionarino', name:'Antonio Nariño', lat:4.5940, lon:-74.0990, density:22372, poverty:28, homeSize:60 },
+  { id:'puentearanda', name:'Puente Aranda', lat:4.6160, lon:-74.1050, density:14921, poverty:26, homeSize:62 },
+  { id:'candelaria', name:'La Candelaria', lat:4.5970, lon:-74.0750, density:13163, poverty:35, homeSize:54 },
+  { id:'rafaeluribe', name:'Rafael Uribe Uribe', lat:4.5610, lon:-74.1160, density:27846, poverty:44, homeSize:50 },
+  { id:'ciudadbolivar', name:'Ciudad Bolívar', lat:4.5350, lon:-74.1540, density:5645, poverty:62, homeSize:48 },
+  { id:'kennedy', name:'Kennedy', lat:4.6280, lon:-74.1570, density:19000, poverty:38, homeSize:56 },
+  { id:'suba', name:'Suba', lat:4.7560, lon:-74.0840, density:10000, poverty:30, homeSize:66 },
+  { id:'bosa', name:'Bosa', lat:4.6180, lon:-74.1910, density:26000, poverty:48, homeSize:50 },
+];
+// Repertorio común de fermentación para clima andino frío (Bogotá). Cada
+// fermento con su TIPO bioquímico: alcoholica | lactica | acetica.
+const BOGOTA_FRUIT = [
+  {product:'uchuva',method:'kombucha de uchuva',type:'acetica'},
+  {product:'curuba',method:'vinagre de curuba',type:'acetica'},
+  {product:'manzana',method:'sidra lenta',type:'alcoholica'},
+  {product:'mora',method:'vino de mora',type:'alcoholica'},
+  {product:'feijoa',method:'kombucha de feijoa',type:'acetica'},
+];
+const BOGOTA_VEG = [
+  {product:'repollo',method:'chucrut (lento)',type:'lactica'},
+  {product:'cubio',method:'cubio soleado y fermentado',type:'lactica'},
+  {product:'hibia',method:'encurtido láctico',type:'lactica'},
+  {product:'papa criolla',method:'fermentado láctico andino',type:'lactica'},
+  {product:'rábano',method:'kimchi andino',type:'lactica'},
 ];
 // Tipos de fermentación bioquímica: etiqueta + color + microorganismo/vía.
 const FERMENT_TYPES = {
@@ -283,38 +290,52 @@ const CRAFT_FERMENTS = [
 ];
 // Clasifica cada producto para saber qué técnicas avanzadas le encajan.
 const PRODUCT_KIND = {
-  // granos / pseudocereales
-  'maíz':'grano','café':'grano',
-  // tubérculos y raíces
-  'yuca':'tuberculo','yuca brava':'tuberculo','ñame':'tuberculo','cubio':'tuberculo','hibia':'tuberculo',
-  'arracacha':'tuberculo','achín':'tuberculo','topocho':'tuberculo','plátano':'tuberculo','chontaduro':'tuberculo',
+  // tubérculos y raíces (clima andino de Bogotá)
+  'cubio':'tuberculo','hibia':'tuberculo','papa criolla':'tuberculo',
+  // verduras
+  'repollo':'verdura','rábano':'verdura',
   // frutas
-  'mango':'fruta','corozo':'fruta','níspero':'fruta','uchuva':'fruta','curuba':'fruta','manzana':'fruta',
-  'mora':'fruta','lulo':'fruta','borojó':'fruta','banano':'fruta','copoazú':'fruta','arazá':'fruta','asaí':'fruta',
-  'marañón':'fruta','cítricos':'fruta','cidra':'fruta',
-  // otros
-  'suero costeño':'verdura','ají negro':'verdura'
+  'uchuva':'fruta','curuba':'fruta','manzana':'fruta','mora':'fruta','feijoa':'fruta',
 };
-// Directorio de HUERTAS URBANAS por región (referencias reales/representativas).
-// Bogotá: huertas del programa de Agricultura Urbana del Jardín Botánico de
-// Bogotá (dataset Datos Abiertos Bogotá). Otras regiones: huertas de referencia.
-const URBAN_GARDENS = {
-  'caribe': ['Huerta La Paz (Barranquilla)','Red de Huertas del Suroccidente','Huerta comunitaria Siape'],
-  'andina-fria': ['Huerta del Jardín Botánico de Bogotá','Huerta Mutualista (Chapinero)','Huerta La Alquería (Kennedy)','Huertas comunitarias de Ciudad Bolívar'],
-  'andina-cafe': ['Huerta Agroecológica Manizales','Red de Huertas del Eje Cafetero','Huerta La Colina'],
-  'pacifico': ['Azoteas agrícolas de Quibdó','Huertas de Patio del Atrato','Huerta comunitaria Tumaco'],
-  'amazonia': ['Chagras periurbanas de Leticia','Huerta Maloka Amazónica','Huertas familiares del Trapecio'],
-  'orinoquia': ['Huerta Agroecológica Villavicencio','Red de Conucos del Llano','Huerta La Esperanza'],
-};
-function gardensFor(regionId, seed){
-  const list = URBAN_GARDENS[regionId] || [];
-  if(!list.length) return [];
-  // devolver hasta 2, rotando con el seed para que varíe en el tiempo
-  const start = Math.floor(seed*list.length)%list.length;
-  const out=[list[start]];
-  if(list.length>1) out.push(list[(start+1)%list.length]);
-  return out;
+// HUERTAS URBANAS de Bogotá con coordenadas (programa de Agricultura Urbana
+// del Jardín Botánico de Bogotá — Datos Abiertos Bogotá). Coordenadas aprox.
+const GARDENS = [
+  { name:'Huerta del Jardín Botánico de Bogotá', lat:4.6680, lon:-74.0990 },
+  { name:'Huerta Mutualista (Chapinero)', lat:4.6490, lon:-74.0620 },
+  { name:'Huerta La Alquería (Kennedy)', lat:4.6150, lon:-74.1520 },
+  { name:'Huertas comunitarias de Ciudad Bolívar', lat:4.5400, lon:-74.1560 },
+  { name:'Huerta UNAL (Teusaquillo)', lat:4.6360, lon:-74.0840 },
+  { name:'Huerta comunitaria Usme', lat:4.4800, lon:-74.1260 },
+  { name:'Huerta de San Cristóbal', lat:4.5600, lon:-74.0850 },
+  { name:'Huerta Suba Rincón', lat:4.7480, lon:-74.0950 },
+];
+
+// PACAS DIGESTORAS (método Silva) — puntos REALES de la Red "Paquerxs Bogotá
+// - Red de huerteras y huerteros" (Google My Maps), con coordenadas del KML.
+const PACAS_LIST = [
+  { name:'Paca Macarena (nodo centro)', lat:4.6117142, lon:-74.06795 },
+  { name:'Paca La Canasta Solidaria', lat:4.6291354, lon:-74.0777851 },
+  { name:'Paca Intihuasi (Nicolás de Federmán)', lat:4.6491246, lon:-74.0839852 },
+  { name:'Paca Belalcázar', lat:4.6375386, lon:-74.0767553 },
+  { name:'Paca Depto. de Biología UNAL', lat:4.6412359, lon:-74.0811584 },
+  { name:'Paca Huerta Jardín', lat:4.6355491, lon:-74.0764521 },
+  { name:'Paca Parque Hipódromo', lat:4.6424746, lon:-74.0728573 },
+];
+
+// Distancia aproximada (km) entre dos coordenadas (equirectangular, suficiente
+// a escala de ciudad).
+function distKm(aLat,aLon,bLat,bLon){
+  const R=6371, toRad=Math.PI/180;
+  const x=(bLon-aLon)*toRad*Math.cos(((aLat+bLat)/2)*toRad);
+  const y=(bLat-aLat)*toRad;
+  return Math.sqrt(x*x+y*y)*R;
 }
+function nearest(list, lat, lon){
+  let best=null, bestD=Infinity;
+  for(const p of list){ const d=distKm(lat,lon,p.lat,p.lon); if(d<bestD){bestD=d; best=p;} }
+  return best ? { name:best.name, km:Math.round(bestD*10)/10 } : null;
+}
+
 // Preparaciones por "huella espacial": cuánto espacio/tiempo piden en casa.
 //   compact = frasco pequeño, días/semanas | large = vasija/maduración de meses
 const CRAFT_FOOTPRINT = { kombucha:'compact', 'kéfir':'compact', amazake:'compact',
@@ -338,8 +359,10 @@ const densityNorm = (d) => Math.min(1, Math.max(0, Math.log10(Math.max(1, d)) / 
 const povertyNorm = (p) => Math.min(1, Math.max(0, p / 100));
 // Tamaño de vivienda (m² promedio, DANE/CEED) normalizado ~40..120 m² -> 0..1.
 const homeNorm = (m2) => Math.min(1, Math.max(0, (m2 - 40) / 80));
-const DEFAULT_REGION = 'andina-fria';
-const regionById = (id) => REGIONS.find(r => r.id === id) || REGIONS[1];
+const MAX_LOCAL_DENSITY = 28000; // Rafael Uribe ~27.800 hab/km²
+const localDensityNorm = (d) => Math.min(1, Math.max(0, d / MAX_LOCAL_DENSITY));
+const DEFAULT_LOCALITY = 'candelaria';
+const localityById = (id) => LOCALITIES.find(l => l.id === id) || LOCALITIES[0];
 
 // ===========================================================================
 // PARSING de wikilinks y del Markdown ligero
@@ -394,75 +417,61 @@ function buildGraph(thesis){
 // ===========================================================================
 // DATOS EN VIVO: clima REAL por región (Open-Meteo) + alimentos simulados
 // ===========================================================================
-function useLiveData(regionId){
+function useLiveData(localityId){
   const [snapshot,setSnapshot]=useState(null);
   const latest=useRef(null);
   useEffect(()=>{
-    const region=regionById(regionId);
+    const loc=localityById(localityId);
     const series=[
       {key:'harvest',label:'Alimentos en cosecha',unit:'t/día',base:420,min:120,max:900,phase:0,freq:0.00018,amp:260},
       {key:'waste',label:'Desperdicio de alimentos',unit:'t/día',base:180,min:40,max:420,phase:1.7,freq:0.00026,amp:150},
       {key:'production',label:'Producción de ingredientes',unit:'índice',base:100,min:55,max:160,phase:3.1,freq:0.00012,amp:42},
       {key:'fruit',label:'Producción de frutas',unit:'t/día',base:260,min:60,max:520,phase:0.8,freq:0.00021,amp:200},
       {key:'veg',label:'Producción de verduras',unit:'t/día',base:260,min:60,max:520,phase:2.5,freq:0.00016,amp:200},
-      {key:'humidity',label:'Humedad',unit:'%',base:70,min:40,max:98,phase:5,freq:0.00014,amp:26},
-      {key:'temperature',label:'Temperatura',unit:'°C',base:18,min:8,max:30,phase:1.2,freq:0.00011,amp:10},
+      // Bogotá: clima frío de altiplano (~6-22 °C)
+      {key:'humidity',label:'Humedad',unit:'%',base:75,min:40,max:98,phase:5,freq:0.00014,amp:22},
+      {key:'temperature',label:'Temperatura',unit:'°C',base:14,min:4,max:24,phase:1.2,freq:0.00011,amp:8},
       {key:'price',label:'Precio promedio',unit:'COP/kg',base:3200,min:1800,max:5200,phase:4.4,freq:0.00009,amp:1400},
     ];
     const real={temperature:null,humidity:null}; let climateOk=false; let stopped=false;
-    // Datos demográficos EN VIVO (API-Colombia): población y superficie del
-    // departamento -> densidad real (proxy de sobrepoblación).
-    const demo={population:null,surface:null,density:null,ok:false};
+    // Temperatura/humedad REALES en vivo de la localidad (Open-Meteo, Bogotá).
     const fetchClimate=async()=>{
       try{
-        const url=`https://api.open-meteo.com/v1/forecast?latitude=${region.lat}&longitude=${region.lon}&current=temperature_2m,relative_humidity_2m`;
+        const url=`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&current=temperature_2m,relative_humidity_2m`;
         const res=await fetch(url); if(!res.ok)return; const j=await res.json();
         if(j.current){ real.temperature=j.current.temperature_2m; real.humidity=j.current.relative_humidity_2m; climateOk=true; }
-      }catch(e){}
-    };
-    const fetchDemographics=async()=>{
-      try{
-        const res=await fetch(`https://api-colombia.com/api/v1/Department/${region.deptId}`);
-        if(!res.ok)return; const j=await res.json();
-        if(j && j.population && j.surface){
-          demo.population=j.population; demo.surface=j.surface;
-          demo.density=j.population/j.surface; demo.ok=true;
-        }
       }catch(e){}
     };
     const sample=()=>{
       const now=Date.now(); const values={}, raw={};
       for(const s of series){
         let c;
-        if(s.key==='temperature'&&real.temperature!=null) c=Math.min(s.max,Math.max(s.min,real.temperature));
+        if(s.key==='temperature'&&real.temperature!=null) c=Math.max(s.min,real.temperature);
         else if(s.key==='humidity'&&real.humidity!=null) c=Math.min(s.max,Math.max(s.min,real.humidity));
         else { const wv=Math.sin(now*s.freq+s.phase); const jt=(Math.random()-0.5)*0.25; c=Math.min(s.max,Math.max(s.min,s.base+s.amp*(wv*0.8+jt))); }
-        values[s.key]=(c-s.min)/(s.max-s.min);
+        const span=(s.max-s.min)||1;
+        values[s.key]=Math.min(1,Math.max(0,(c-s.min)/span));
         raw[s.key]={value:Math.round(c),unit:s.unit,label:s.label};
       }
-      // demografía: densidad en vivo (o cálculo pendiente) + pobreza del DANE
-      const density=demo.ok?demo.density:null;
-      values.density=density!=null?densityNorm(density):0.5;
-      values.poverty=povertyNorm(region.poverty);
-      values.homeSize=homeNorm(region.homeSize);
-      if(density!=null){
-        raw.density={value:Math.round(density),unit:'hab/km²',label:'Densidad poblacional ('+region.dept+')'};
-      }
-      raw.poverty={value:region.poverty,unit:'% pobreza',label:'Pobreza monetaria ('+region.dept+')'};
-      raw.homeSize={value:region.homeSize,unit:'m² vivienda',label:'Tamaño de vivienda ('+region.city+')'};
+      // demografía por LOCALIDAD (embebida, DANE/Wikipedia)
+      values.density=localDensityNorm(loc.density);
+      values.poverty=povertyNorm(loc.poverty);
+      values.homeSize=homeNorm(loc.homeSize);
+      raw.density={value:loc.density,unit:'hab/km²',label:'Densidad ('+loc.name+')'};
+      raw.poverty={value:loc.poverty,unit:'% vulnerab.',label:'Vulnerabilidad/pobreza ('+loc.name+')'};
+      raw.homeSize={value:loc.homeSize,unit:'m² vivienda',label:'Tamaño de vivienda ('+loc.name+')'};
       const sourceLabel=climateOk
-        ? `Clima real de ${region.city} (Open-Meteo) · demografía ${region.dept} (API-Colombia + DANE)`
-        : `${region.city}: conectando datos reales…`;
-      return {t:now,values,raw,sourceLabel,demo:{...demo},regionId};
+        ? `Clima real de ${loc.name}, Bogotá (Open-Meteo) · demografía DANE`
+        : `${loc.name}: conectando clima real de Bogotá…`;
+      return {t:now,values,raw,sourceLabel,localityId};
     };
     const push=()=>{ if(stopped)return; const snap=sample(); latest.current=snap; setSnapshot(snap); };
-    Promise.all([fetchClimate(),fetchDemographics()]).then(push);
+    fetchClimate().then(push);
     const ci=setInterval(fetchClimate,120000);
-    const di=setInterval(fetchDemographics,300000);
     push();
     const ti=setInterval(push,1500);
-    return ()=>{ stopped=true; clearInterval(ci); clearInterval(di); clearInterval(ti); };
-  },[regionId]);
+    return ()=>{ stopped=true; clearInterval(ci); clearInterval(ti); };
+  },[localityId]);
   return {snapshot,latest};
 }
 
@@ -495,52 +504,54 @@ function computeEffervescence(snap){
 // Color (hue) de las partículas según el TIPO de fermentación recomendado.
 const TYPE_HUE = { alcoholica:270, lactica:95, acetica:40, propionica:215, butirica:345 };
 function recommendedTypeHue(snap){
-  if(!snap||!snap.regionId) return null;
-  try{ const r=recommend(snap, snap.regionId); return r&&r.type?TYPE_HUE[r.type]:null; }catch(e){ return null; }
+  if(!snap||!snap.localityId) return null;
+  try{ const r=recommend(snap, snap.localityId); return r&&r.type?TYPE_HUE[r.type]:null; }catch(e){ return null; }
 }
 
-// Recomendación de fermentación — cruce FINAL:
-//   región + clima real + excedente/desperdicio + sobrepoblación (densidad)
-//   + hambre (pobreza DANE). Produce una sugerencia de qué fermento ofrecer
-//   al territorio y una lectura social del cruce.
-function recommend(snap,regionId){
+// Recomendación de fermentación — cruce FINAL por LOCALIDAD de Bogotá:
+//   localidad + clima real + excedente/desperdicio + sobrepoblación (densidad)
+//   + hambre (vulnerabilidad) + tamaño de vivienda. Devuelve alimento, técnica,
+//   tipo, preparación avanzada, prioridad social, y la HUERTA y PACA más cercanas.
+function recommend(snap,localityId){
   if(!snap)return null;
-  const region=regionById(regionId); const v=snap.values;
+  const loc=localityById(localityId); const v=snap.values;
   const fruit=v.fruit||0, veg=v.veg||0, waste=v.waste||0, humidity=v.humidity||0, temperature=v.temperature||0;
   const density=v.density!=null?v.density:0.5;   // sobrepoblación 0..1
-  const poverty=v.poverty!=null?v.poverty:0.3;    // hambre/pobreza 0..1
+  const poverty=v.poverty!=null?v.poverty:0.3;    // hambre/vulnerabilidad 0..1
   const climateScore=Math.min(1,Math.max(0,(temperature+humidity)/2));
   const useFruit=(fruit+waste*0.4)>=(veg+waste*0.4);
-  const pool=useFruit?region.fruitFerments:region.vegFerments;
+  const pool=useFruit?BOGOTA_FRUIT:BOGOTA_VEG;
   const seed=(snap.t/60000)%1; const choice=pool[Math.floor(seed*pool.length)%pool.length];
-  // Preparación de técnica avanzada (miso, garum, koji, kombucha, kéfir…)
-  // aplicable al producto recomendado según su tipo (fruta/tubérculo/grano).
   const home=v.homeSize!=null?v.homeSize:0.5;   // tamaño de vivienda 0..1
   const craftSeed=(snap.t/90000)%1; const craft=craftFor(choice.product, craftSeed, home);
-  const gardens=gardensFor(regionId, (snap.t/120000)%1);  // huertas urbanas cercanas
+  // HUERTA y PACA más cercanas a la localidad (por coordenadas).
+  const garden=nearest(GARDENS, loc.lat, loc.lon);
+  const paca=nearest(PACAS_LIST, loc.lat, loc.lon);
+  // Índice de aprovechamiento de residuos en pacas (crece con el desperdicio).
+  const wasteUse=c01((v.waste||0)*0.85+0.1);
+  const wasteUseLabel = wasteUse>0.6 ? 'alto' : (wasteUse>0.35 ? 'medio' : 'bajo');
   const eff=computeEffervescence(snap);
   const abundant=(useFruit?fruit:veg)>0.6||waste>0.6; const tipo=useFruit?'fruta':'verdura';
 
   // Índice de PRIORIDAD SOCIAL: dónde urge más aprovechar el excedente.
-  // Alta pobreza (hambre) + alto desperdicio + alta densidad => prioridad alta.
   const priority=c01(poverty*0.5+waste*0.3+density*0.2);
   let priorityLabel = priority>0.66 ? 'alta' : (priority>0.4 ? 'media' : 'baja');
 
-  // Enfoque del fermento según el perfil del territorio.
+  // Enfoque del fermento según el perfil de la localidad.
   let enfoque;
-  if(poverty>0.55 && waste>0.4)
-    enfoque=`En ${region.dept} coinciden alta pobreza (${region.poverty}%) y desperdicio elevado: fermentar ${choice.product} para conservar y redistribuir excedente puede mitigar el hambre.`;
-  else if(density>0.75)
-    enfoque=`${region.dept} es un territorio densamente poblado: fermentos como ${choice.method} ofrecen alimento estable y de larga vida para muchas personas.`;
-  else if(poverty>0.55)
-    enfoque=`${region.dept} tiene pobreza alta (${region.poverty}%): priorizar fermentos nutritivos y de bajo coste como ${choice.product}.`;
+  if(poverty>0.5 && waste>0.4)
+    enfoque=`En ${loc.name} coinciden alta vulnerabilidad (${loc.poverty}%) y desperdicio elevado: fermentar ${choice.product} para conservar y redistribuir excedente puede mitigar el hambre.`;
+  else if(density>0.7)
+    enfoque=`${loc.name} es muy densa (${loc.density.toLocaleString()} hab/km²): fermentos como ${choice.method} ofrecen alimento estable y de larga vida para muchas personas.`;
+  else if(poverty>0.5)
+    enfoque=`${loc.name} tiene vulnerabilidad alta (${loc.poverty}%): priorizar fermentos nutritivos y de bajo coste como ${choice.product}.`;
   else
-    enfoque=`${region.dept}: condiciones moderadas; ${choice.product} aprovecha el excedente local sin urgencia social.`;
+    enfoque=`${loc.name}: condiciones moderadas; ${choice.product} aprovecha el excedente local sin urgencia social.`;
 
   let reason;
-  if(climateScore<0.35) reason=`En ${region.name} (${region.city}) el clima está frío/seco ahora: la fermentación de ${choice.product} irá lenta, ideal para arranques largos.`;
-  else if(abundant) reason=`Excedente alto de ${tipo} en ${region.name} y clima cálido/húmedo (${region.city}): aprovecha el pico para fermentar ${choice.product}.`;
-  else reason=`En ${region.name} las condiciones reales de ${region.city} favorecen fermentar ${choice.product}.`;
+  if(climateScore<0.3) reason=`En ${loc.name} (Bogotá) el clima está frío ahora: la fermentación de ${choice.product} irá lenta, ideal para arranques largos de maduración.`;
+  else if(abundant) reason=`Excedente alto de ${tipo} en ${loc.name}: aprovecha el pico para fermentar ${choice.product}.`;
+  else reason=`En ${loc.name} las condiciones reales de Bogotá favorecen fermentar ${choice.product}.`;
   if(eff.tension>0.5) reason+=' El sistema muestra tensión (desperdicio/precio): fermentar estabiliza el excedente.';
 
   return {
@@ -548,10 +559,10 @@ function recommend(snap,regionId){
     product:choice.product, method:choice.method, type:choice.type,
     craft: craft ? { name:craft.craft, base:craft.base, type:craft.type, footprint:CRAFT_FOOTPRINT[craft.craft] } : null,
     reason, enfoque, climateScore,
-    region:region.name, dept:region.dept,
+    locality:loc.name,
     priority, priorityLabel,
-    density, poverty, home, homeSizeM2:region.homeSize,
-    gardens
+    density, poverty, home, homeSizeM2:loc.homeSize,
+    garden, paca, wasteUse, wasteUseLabel
   };
 }
 
@@ -807,9 +818,9 @@ function ParticleField({liveRef}){
   return h('div',{ref:wrapRef,className:'canvas-wrap'},h('canvas',{ref:canvasRef}));
 }
 
-function LivePanel({snapshot,regionId}){
+function LivePanel({snapshot,localityId}){
   if(!snapshot) return h('div',{className:'pad muted',style:{fontSize:14}},h('p',{className:'mono',style:{textTransform:'uppercase',fontSize:12}},'Datos en vivo'),h('p',null,'Conectando con la fuente…'));
-  const rec=recommend(snapshot,regionId);
+  const rec=recommend(snapshot,localityId);
   return h('div',{className:'pad'},
     h('p',{className:'mono muted',style:{fontSize:12,textTransform:'uppercase',letterSpacing:'.06em'}},'Fuente'),
     h('h2',{style:{marginTop:4,fontSize:18}},snapshot.sourceLabel),
@@ -835,7 +846,7 @@ function LivePanel({snapshot,regionId}){
           h('span',{className:'mono',style:{fontSize:12,fontWeight:600,color:'#f0e6d6',textTransform:'capitalize'}},rec.craft.name)),
         h('p',{style:{marginTop:4,fontSize:12,lineHeight:1.5,color:'#cfcfd6'}},rec.craft.base),
         h('p',{className:'mono muted',style:{marginTop:4,fontSize:10}},
-          'vivienda '+rec.homeSizeM2+' m² ('+rec.dept+') · '+
+          'vivienda '+rec.homeSizeM2+' m² ('+rec.locality+') · '+
           (rec.craft.footprint==='compact'?'preparación compacta, apta para espacios pequeños':'maduración amplia, requiere más espacio'))),
       // Prioridad social: identifica zonas con alta población + hambre + desperdicio
       h('div',{style:{marginTop:10,paddingTop:10,borderTop:'1px solid #26262e'}},
@@ -849,11 +860,19 @@ function LivePanel({snapshot,regionId}){
           h('span',null,'población '+Math.round(rec.density*100)+'%'),
           h('span',null,'hambre/pobreza '+Math.round(rec.poverty*100)+'%'),
           h('span',null,'desperdicio '+Math.round((snapshot.values.waste||0)*100)+'%'))),
-      // Huertas urbanas cercanas donde conseguir/llevar el excedente
-      (rec.gardens && rec.gardens.length>0) && h('div',{style:{marginTop:10,paddingTop:10,borderTop:'1px solid #26262e'}},
-        h('span',{className:'mono',style:{fontSize:10,textTransform:'uppercase',letterSpacing:'.06em',color:'#9ece6a'}},'Huertas urbanas cercanas'),
-        h('ul',{style:{listStyle:'none',padding:0,margin:'6px 0 0'}},
-          rec.gardens.map((g,i)=>h('li',{key:i,style:{fontSize:12,color:'#cfcfd6',lineHeight:1.5}},'🌱 '+g))))),
+      // LOCALIDAD + huerta más cercana + paca más cercana + aprovechamiento residuos
+      h('div',{style:{marginTop:10,paddingTop:10,borderTop:'1px solid #26262e'}},
+        h('div',{style:{fontSize:12,color:'#cfcfd6',lineHeight:1.6}},
+          h('span',{className:'mono',style:{fontSize:10,textTransform:'uppercase',letterSpacing:'.06em',color:'#2ac3de'}},'Localidad: '),
+          h('span',{style:{color:'#f0e6d6',fontWeight:600}},rec.locality)),
+        rec.garden && h('div',{style:{marginTop:6,fontSize:12,color:'#cfcfd6',lineHeight:1.5}},
+          '🌱 Huerta más cercana: ',h('span',{style:{color:'#9ece6a'}},rec.garden.name),
+          h('span',{className:'mono muted'},' · '+rec.garden.km+' km')),
+        rec.paca && h('div',{style:{marginTop:4,fontSize:12,color:'#cfcfd6',lineHeight:1.5}},
+          '♻️ Paca digestora más cercana: ',h('span',{style:{color:'#e0af68'}},rec.paca.name),
+          h('span',{className:'mono muted'},' · '+rec.paca.km+' km')),
+        h('div',{className:'mono muted',style:{marginTop:6,fontSize:10}},
+          'aprovechamiento de residuos en paca: '+rec.wasteUseLabel+' ('+Math.round(rec.wasteUse*100)+'%)'))),
     h('div',{style:{marginTop:20,display:'flex',flexDirection:'column',gap:16}},
       Object.entries(snapshot.raw).map(([key,r])=>{const norm=snapshot.values[key]||0; return h('div',{key},
         h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'baseline'}},
@@ -862,7 +881,7 @@ function LivePanel({snapshot,regionId}){
         h('div',{className:'bar-track',style:{marginTop:4}},h('div',{className:'bar-fill',style:{width:Math.round(norm*100)+'%'}})),
         h('div',{className:'mono muted',style:{marginTop:2,fontSize:10}},'clave: '+key+' · intensidad '+Math.round(norm*100)+'%'));})),
     h('p',{className:'mono muted',style:{marginTop:24,border:'1px solid #26262e',background:'#0a0a0c',borderRadius:6,padding:'8px 12px',fontSize:12,lineHeight:1.5}},
-      'Fuentes: clima en vivo (Open-Meteo); densidad poblacional en vivo (API-Colombia); pobreza (DANE 2023); tamaño de vivienda (DANE · Censo de Edificaciones); huertas urbanas (Datos Abiertos Bogotá · Jardín Botánico, y referencias por región). Cosecha, desperdicio, producción y precio son simulación de demostración. La recomendación final cruza clima + excedente + sobrepoblación + hambre + desperdicio + tamaño de vivienda para proponer alimento, técnica, tipo de fermentación, preparación avanzada y huertas urbanas cercanas.')
+      'Modelo por LOCALIDADES de Bogotá. Fuentes: temperatura y humedad en vivo de cada localidad (Open-Meteo); densidad poblacional por localidad (DANE/Wikipedia); vulnerabilidad/pobreza (DANE); tamaño de vivienda (DANE · Censo de Edificaciones); huertas urbanas (Jardín Botánico de Bogotá · Datos Abiertos Bogotá); pacas digestoras (Red Paquerxs Bogotá · Google My Maps). Cosecha, desperdicio, producción y precio son simulación de demostración. La recomendación final cruza clima + excedente + sobrepoblación + hambre + desperdicio + tamaño de vivienda y propone: alimento, técnica, tipo de fermentación, preparación avanzada, localidad, y la huerta y paca más cercanas.')
   );
 }
 
@@ -874,9 +893,9 @@ function App(){
   const [selectedId,setSelectedId]=useState(null);
   const [focusChapter,setFocusChapter]=useState(null);
   const [activeKinds,setActiveKinds]=useState(new Set(ALL_KINDS));
-  const [regionId,setRegionId]=useState(DEFAULT_REGION);
+  const [localityId,setLocalityId]=useState(DEFAULT_LOCALITY);
   const graph=useMemo(()=>buildGraph(THESIS),[]);
-  const {snapshot,latest}=useLiveData(regionId);
+  const {snapshot,latest}=useLiveData(localityId);
   const selectedNode=graph.nodes.find(n=>n.id===selectedId)||null;
   const openInGraph=id=>{setSelectedId(id);setTab('red');};
   const toggleKind=k=>setActiveKinds(prev=>{const n=new Set(prev); n.has(k)?n.delete(k):n.add(k); return n;});
@@ -899,11 +918,11 @@ function App(){
       tab==='vivo'&&h('div',{className:'split'},
         h('div',{className:'stage'},
           h('div',{className:'chip-row'},
-            h('span',{className:'mono muted',style:{fontSize:11,textTransform:'uppercase',letterSpacing:'.06em'}},'Región'),
-            h('select',{value:regionId,onChange:e=>setRegionId(e.target.value)},REGIONS.map(r=>h('option',{key:r.id,value:r.id},r.name+' · '+r.city)))),
+            h('span',{className:'mono muted',style:{fontSize:11,textTransform:'uppercase',letterSpacing:'.06em'}},'Localidad'),
+            h('select',{value:localityId,onChange:e=>setLocalityId(e.target.value)},LOCALITIES.map(l=>h('option',{key:l.id,value:l.id},l.name)))),
           h(ParticleField,{liveRef:latest}),
-          h('p',{className:'hint'},'Partículas efervescentes · clima real de Colombia · burbujean con los cruces de datos')),
-        h('aside',{className:'panel'},h(LivePanel,{snapshot,regionId})))
+          h('p',{className:'hint'},'Partículas efervescentes · clima real de Bogotá · burbujean con los cruces de datos')),
+        h('aside',{className:'panel'},h(LivePanel,{snapshot,localityId})))
     ));
 }
 
