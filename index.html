@@ -703,7 +703,7 @@ function NodePanel({graph,node,onSelect,onGoToChapter}){
 }
 
 function ParticleField({liveRef}){
-  const canvasRef=useRef(null),wrapRef=useRef(null),partsRef=useRef([]),rafRef=useRef(0),spawnAcc=useRef(0);
+  const canvasRef=useRef(null),wrapRef=useRef(null),partsRef=useRef([]),rafRef=useRef(0),spawnAcc=useRef(0),collapseRef=useRef(0);
   useEffect(()=>{
     const resize=()=>{const c=canvasRef.current,w=wrapRef.current; if(!c||!w)return; const dpr=window.devicePixelRatio||1;
       c.width=w.clientWidth*dpr; c.height=w.clientHeight*dpr; const ctx=c.getContext('2d'); if(ctx)ctx.setTransform(dpr,0,0,dpr,0,0);};
@@ -741,20 +741,43 @@ function ParticleField({liveRef}){
       // Limpieza del fondo en negro cada frame (sin estela: flujo nítido).
       ctx.globalCompositeOperation='source-over'; ctx.fillStyle='#0a0a0c'; ctx.fillRect(0,0,w,hh);
 
-      // ACUMULACIÓN SÓLIDA ARRIBA: una banda superior cuya altura y opacidad
-      // crecen con la energía. Simula el "llenarse hasta quedar sólido".
-      const fillH=hh*(0.12+energy*0.5);           // altura de la masa superior
+      const ps=partsRef.current;
+      // CONTEO de acumulación en el tercio superior -> "saturación" de la masa.
+      // Cuando hay muchas partículas arriba, la banda COLAPSA en una capa casi
+      // sólida (opaca y compacta) en el margen superior.
+      let topCount=0; const topZone=hh*0.33;
+      for(let i=0;i<ps.length;i++){ if(ps[i].y<topZone) topCount++; }
+      // saturación 0..1: cuántas de las ~800 posibles en la zona alta hay ya.
+      const saturation=Math.min(1, topCount/800);
+      // la masa colapsada vive en un ref para suavizar (no saltar de golpe).
+      collapseRef.current += (saturation - collapseRef.current) * Math.min(1, dt*2.5);
+      const collapse=collapseRef.current;
+
+      // ACUMULACIÓN SÓLIDA ARRIBA: altura por energía, pero la OPACIDAD y la
+      // compactación crecen con el colapso -> casi una masa completa al saturar.
+      const fillH=hh*(0.10+energy*0.42+collapse*0.12);
       const grad=ctx.createLinearGradient(0,0,0,fillH);
-      const light=56+energy*14, sat=68+eff.tension*26, baseHue=coreHue;
-      grad.addColorStop(0, `hsla(${baseHue},${sat}%,${light}%,${0.65+energy*0.3})`); // sólido arriba
-      grad.addColorStop(1, `hsla(${baseHue},${sat}%,${light}%,0)`);                   // se difumina hacia abajo
+      const light=56+energy*14-collapse*10, sat=68+eff.tension*26, baseHue=coreHue;
+      const topAlpha=Math.min(1, 0.55+energy*0.2+collapse*0.5); // -> ~1 (opaco) al colapsar
+      grad.addColorStop(0, `hsla(${baseHue},${sat}%,${light}%,${topAlpha})`);
+      grad.addColorStop(Math.min(0.95, 0.4+collapse*0.5), `hsla(${baseHue},${sat}%,${light}%,${topAlpha*0.6})`);
+      grad.addColorStop(1, `hsla(${baseHue},${sat}%,${light}%,0)`);
       ctx.fillStyle=grad; ctx.fillRect(0,0,w,fillH);
+      // Capa compacta superior: una franja casi sólida que aparece al colapsar.
+      if(collapse>0.15){
+        ctx.fillStyle=`hsla(${baseHue},${sat}%,${light}%,${Math.min(0.95,collapse)})`;
+        ctx.fillRect(0,0,w,hh*0.06*collapse+2);
+      }
 
       ctx.globalCompositeOperation='lighter';
-      const turb=10+energy*80; const ps=partsRef.current;
+      const turb=10+energy*80;
+      // umbral de absorción: cuando colapsa, el "techo" baja y absorbe partículas.
+      const ceiling=hh*(0.02+ (1-collapse)*0.06);
       for(let i=ps.length-1;i>=0;i--){
         const p=ps[i]; p.life+=dt;
-        if(p.life>=p.maxLife||p.y<-10){ps.splice(i,1);continue;}
+        // absorción en el techo: al colapsar, las que llegan arriba se funden
+        // en la masa (se eliminan al cruzar el ceiling).
+        if(p.life>=p.maxLife||p.y<ceiling){ps.splice(i,1);continue;}
 
         // DENSIDAD CRECIENTE HACIA ARRIBA: 'up' va de 0 (abajo) a 1 (arriba).
         const up=Math.max(0, Math.min(1, 1-(p.y/hh)));
@@ -768,8 +791,12 @@ function ParticleField({liveRef}){
         const k=1-p.life/p.maxLife;
         const alpha=Math.min(0.92, 0.22+up*0.6)*Math.min(1,k*3);
         const rr=p.r*(0.85+up*1.0);
+        // COLOR por altura: suave abajo (baja saturación, tono lavado) ->
+        // intenso arriba (alta saturación, color pleno).
+        const pSat=38+up*52;                 // 38% (suave) -> 90% (intenso)
+        const pLight=72-up*26+energy*6;      // 72% (claro/pálido) -> 46% (pleno)
         ctx.beginPath();
-        ctx.fillStyle=`hsla(${p.hue},${sat}%,${light}%,${alpha})`;
+        ctx.fillStyle=`hsla(${p.hue},${pSat}%,${pLight}%,${alpha})`;
         ctx.arc(p.x,p.y,rr,0,Math.PI*2); ctx.fill();
       }
       ctx.globalCompositeOperation='source-over';
