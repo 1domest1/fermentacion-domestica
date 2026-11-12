@@ -55,8 +55,9 @@
   .wikilink:hover { background: rgba(122,162,247,.12); }
 
   /* paneles laterales */
-  .split { display: flex; height: 100%; }
-  .canvas-wrap { position: relative; min-width: 0; flex: 1; overflow: hidden; background: #0a0a0c; }
+  .split { display: flex; height: 100%; align-items: stretch; }
+  .stage { position: relative; min-width: 0; flex: 1; height: 100%; }
+  .canvas-wrap { position: relative; min-width: 0; flex: 1; height: 100%; overflow: hidden; background: #0a0a0c; }
   canvas { width: 100%; height: 100%; display: block; }
   aside.panel { width: 320px; flex-shrink: 0; border-left: 1px solid #26262e; background: #121216; overflow-y: auto; }
   .pad { padding: 20px; }
@@ -76,18 +77,92 @@
 </style>
 </head>
 <body>
-<div id="root"></div>
+<div id="root"><div style="padding:40px;font-family:ui-monospace,monospace;color:#8a8a99">Cargando Fermentación Doméstica…</div></div>
 
-<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-<script src="https://cdn.jsdelivr.net/npm/d3-quadtree@3/dist/d3-quadtree.min.js" crossorigin></script>
-<script src="https://cdn.jsdelivr.net/npm/d3-dispatch@3/dist/d3-dispatch.min.js" crossorigin></script>
-<script src="https://cdn.jsdelivr.net/npm/d3-timer@3/dist/d3-timer.min.js" crossorigin></script>
-<script src="https://cdn.jsdelivr.net/npm/d3-force@3/dist/d3-force.min.js" crossorigin></script>
+<!--
+  Cargador robusto: intenta cada librería desde una CDN y, si falla, prueba
+  una CDN alternativa. Si tras los intentos algo falta, muestra un mensaje
+  visible en lugar de dejar la pantalla en negro.
+-->
+<script>
+(function () {
+  // Cada entrada: lista de URLs equivalentes (se prueban en orden) y un test
+  // para saber si ya está disponible en el global.
+  var LIBS = [
+    { name: 'React', ok: function(){ return !!window.React; }, urls: [
+      'https://unpkg.com/react@18/umd/react.production.min.js',
+      'https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js'
+    ]},
+    { name: 'ReactDOM', ok: function(){ return !!window.ReactDOM; }, urls: [
+      'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js',
+      'https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js'
+    ]},
+    { name: 'd3-quadtree', ok: function(){ return window.d3 && d3.quadtree; }, urls: [
+      'https://cdn.jsdelivr.net/npm/d3-quadtree@3/dist/d3-quadtree.min.js',
+      'https://unpkg.com/d3-quadtree@3/dist/d3-quadtree.min.js'
+    ]},
+    { name: 'd3-dispatch', ok: function(){ return window.d3 && d3.dispatch; }, urls: [
+      'https://cdn.jsdelivr.net/npm/d3-dispatch@3/dist/d3-dispatch.min.js',
+      'https://unpkg.com/d3-dispatch@3/dist/d3-dispatch.min.js'
+    ]},
+    { name: 'd3-timer', ok: function(){ return window.d3 && d3.timer; }, urls: [
+      'https://cdn.jsdelivr.net/npm/d3-timer@3/dist/d3-timer.min.js',
+      'https://unpkg.com/d3-timer@3/dist/d3-timer.min.js'
+    ]},
+    { name: 'd3-force', ok: function(){ return window.d3 && d3.forceSimulation; }, urls: [
+      'https://cdn.jsdelivr.net/npm/d3-force@3/dist/d3-force.min.js',
+      'https://unpkg.com/d3-force@3/dist/d3-force.min.js'
+    ]}
+  ];
+
+  function loadScript(url) {
+    return new Promise(function (resolve, reject) {
+      var s = document.createElement('script');
+      s.src = url; s.crossOrigin = 'anonymous';
+      s.onload = function () { resolve(); };
+      s.onerror = function () { reject(new Error('fallo al cargar ' + url)); };
+      document.head.appendChild(s);
+    });
+  }
+
+  async function loadLib(lib) {
+    if (lib.ok()) return;
+    for (var i = 0; i < lib.urls.length; i++) {
+      try { await loadScript(lib.urls[i]); if (lib.ok()) return; } catch (e) {}
+    }
+    throw new Error(lib.name);
+  }
+
+  function showError(msg) {
+    var root = document.getElementById('root');
+    if (root) root.innerHTML =
+      '<div style="padding:40px;max-width:640px;margin:0 auto;font-family:ui-monospace,monospace;color:#e7e7ea">' +
+      '<h2 style="color:#f7768e">No se pudieron cargar las librerías</h2>' +
+      '<p style="color:#cfcfd6;line-height:1.6">' + msg + '</p>' +
+      '<p style="color:#8a8a99">Suele deberse a una red o extensión que bloquea los scripts externos (unpkg / jsdelivr). ' +
+      'Prueba en otra red, en ventana de incógnito, o desactiva bloqueadores para este sitio.</p>' +
+      '</div>';
+  }
+
+  (async function () {
+    try {
+      // React y ReactDOM primero (en serie); luego las d3 en orden.
+      for (var i = 0; i < LIBS.length; i++) { await loadLib(LIBS[i]); }
+      window.__APP_BOOT__ && window.__APP_BOOT__();
+    } catch (e) {
+      showError('No se pudo cargar: ' + e.message + '.');
+    }
+  })();
+})();
+</script>
 
 <script>
+function __APP_BOOT__() {
 const { useState, useMemo, useRef, useEffect, createElement: h, Fragment } = React;
 
+// ===========================================================================
+// CONTENIDO DE LA TESIS — edita libremente. El grafo se autogenera de [[...]].
+// ===========================================================================
 const THESIS = {
   title: 'Fermentación Doméstica',
   author: 'Nombre del Artista',
@@ -146,36 +221,136 @@ El proceso combina [[metodo-registro|registro de campo]], [[metodo-cartografia|c
 const KIND_COLORS = { concepto:'#7aa2f7', autor:'#e0af68', teoria:'#bb9af7', metodo:'#9ece6a', categoria:'#f7768e', material:'#2ac3de' };
 const KIND_LABELS = { concepto:'Concepto', autor:'Autor', teoria:'Teoría', metodo:'Método', categoria:'Categoría', material:'Material' };
 const ALL_KINDS = ['concepto','autor','teoria','metodo','categoria','material'];
+
+// ===========================================================================
+// REGIONES DE COLOMBIA (cruce geográfico) + repertorio de fermentación
+//
+// Datos demográficos:
+//   deptId   : id del departamento en API-Colombia (población y superficie EN VIVO)
+//   dept     : nombre del departamento representativo
+//   poverty  : pobreza monetaria 2023 (%) — proxy de HAMBRE / inseguridad (DANE)
+// La densidad (proxy de SOBREPOBLACIÓN) se calcula en vivo como población/superficie
+// con datos reales de https://api-colombia.com. La pobreza es del DANE (2023),
+// que API-Colombia no provee, y se usa como dato de referencia citado.
+// ===========================================================================
+// Cada fermento lleva su TIPO de fermentación bioquímica:
+//   alcoholica | lactica | acetica | propionica | butirica
 const REGIONS = [
   { id:'caribe', name:'Caribe', city:'Barranquilla', lat:10.96, lon:-74.8,
-    fruitFerments:[{product:'mango',method:'tepache de mango'},{product:'corozo',method:'vino de corozo'},{product:'níspero',method:'pulpa fermentada'}],
-    vegFerments:[{product:'yuca',method:'masa agria (casabe)'},{product:'ñame',method:'fermentado láctico'},{product:'suero costeño',method:'leche fermentada'}] },
+    deptId:4, dept:'Atlántico', poverty:35, homeSize:95,
+    fruitFerments:[{product:'mango',method:'tepache de mango',type:'alcoholica'},{product:'corozo',method:'vino de corozo',type:'alcoholica'},{product:'níspero',method:'pulpa fermentada',type:'lactica'}],
+    vegFerments:[{product:'yuca',method:'masa agria (casabe)',type:'lactica'},{product:'ñame',method:'fermentado láctico',type:'lactica'},{product:'suero costeño',method:'leche fermentada',type:'lactica'}] },
   { id:'andina-fria', name:'Andina (altiplano frío)', city:'Bogotá', lat:4.61, lon:-74.08,
-    fruitFerments:[{product:'uchuva',method:'kombucha de uchuva'},{product:'curuba',method:'vinagre de curuba'},{product:'manzana',method:'sidra lenta'}],
-    vegFerments:[{product:'repollo',method:'chucrut (lento)'},{product:'cubio',method:'cubio soleado y fermentado'},{product:'hibia',method:'encurtido láctico'}] },
+    deptId:5, dept:'Bogotá D.C.', poverty:30, homeSize:72,
+    fruitFerments:[{product:'uchuva',method:'kombucha de uchuva',type:'acetica'},{product:'curuba',method:'vinagre de curuba',type:'acetica'},{product:'manzana',method:'sidra lenta',type:'alcoholica'}],
+    vegFerments:[{product:'repollo',method:'chucrut (lento)',type:'lactica'},{product:'cubio',method:'cubio soleado y fermentado',type:'lactica'},{product:'hibia',method:'encurtido láctico',type:'lactica'}] },
   { id:'andina-cafe', name:'Andina (zona cafetera)', city:'Manizales', lat:5.07, lon:-75.52,
-    fruitFerments:[{product:'café',method:'fermentación de la pulpa (honey/natural)'},{product:'mora',method:'vino de mora'},{product:'lulo',method:'kombucha de lulo'}],
-    vegFerments:[{product:'plátano',method:'vinagre de plátano'},{product:'arracacha',method:'encurtido láctico'},{product:'cidra',method:'fermentado suave'}] },
+    deptId:8, dept:'Caldas', poverty:27, homeSize:88,
+    fruitFerments:[{product:'café',method:'fermentación de la pulpa (honey/natural)',type:'lactica'},{product:'mora',method:'vino de mora',type:'alcoholica'},{product:'lulo',method:'kombucha de lulo',type:'acetica'}],
+    vegFerments:[{product:'plátano',method:'vinagre de plátano',type:'acetica'},{product:'arracacha',method:'encurtido láctico',type:'lactica'},{product:'cidra',method:'fermentado suave',type:'lactica'}] },
   { id:'pacifico', name:'Pacífico', city:'Quibdó', lat:5.69, lon:-76.66,
-    fruitFerments:[{product:'borojó',method:'bebida fermentada de borojó'},{product:'chontaduro',method:'masa fermentada'},{product:'banano',method:'vinagre de banano'}],
-    vegFerments:[{product:'yuca brava',method:'fermentación detoxificante'},{product:'ñame',method:'fermentado láctico'},{product:'achín',method:'encurtido'}] },
+    deptId:13, dept:'Chocó', poverty:68, homeSize:62,
+    fruitFerments:[{product:'borojó',method:'bebida fermentada de borojó',type:'alcoholica'},{product:'chontaduro',method:'masa fermentada',type:'lactica'},{product:'banano',method:'vinagre de banano',type:'acetica'}],
+    vegFerments:[{product:'yuca brava',method:'fermentación detoxificante',type:'lactica'},{product:'ñame',method:'fermentado láctico',type:'lactica'},{product:'achín',method:'encurtido',type:'lactica'}] },
   { id:'amazonia', name:'Amazonía', city:'Leticia', lat:-4.21, lon:-69.94,
-    fruitFerments:[{product:'copoazú',method:'pulpa fermentada'},{product:'arazá',method:'vino de arazá'},{product:'asaí',method:'fermentado de asaí'}],
-    vegFerments:[{product:'yuca brava',method:'chicha / fariña fermentada'},{product:'ají negro',method:'tucupí'},{product:'ñame',method:'fermentado láctico'}] },
+    deptId:1, dept:'Amazonas', poverty:40, homeSize:58,
+    fruitFerments:[{product:'copoazú',method:'pulpa fermentada',type:'lactica'},{product:'arazá',method:'vino de arazá',type:'alcoholica'},{product:'asaí',method:'fermentado de asaí',type:'lactica'}],
+    vegFerments:[{product:'yuca brava',method:'chicha / fariña fermentada',type:'alcoholica'},{product:'ají negro',method:'tucupí',type:'lactica'},{product:'ñame',method:'fermentado láctico',type:'lactica'}] },
   { id:'orinoquia', name:'Orinoquía (Llanos)', city:'Villavicencio', lat:4.15, lon:-73.63,
-    fruitFerments:[{product:'mango',method:'tepache de mango'},{product:'marañón',method:'vino de marañón'},{product:'cítricos',method:'vinagre cítrico'}],
-    vegFerments:[{product:'yuca',method:'masato de yuca'},{product:'maíz',method:'chicha de maíz'},{product:'topocho',method:'vinagre de plátano'}] },
+    deptId:21, dept:'Meta', poverty:30, homeSize:98,
+    fruitFerments:[{product:'mango',method:'tepache de mango',type:'alcoholica'},{product:'marañón',method:'vino de marañón',type:'alcoholica'},{product:'cítricos',method:'vinagre cítrico',type:'acetica'}],
+    vegFerments:[{product:'yuca',method:'masato de yuca',type:'alcoholica'},{product:'maíz',method:'chicha de maíz',type:'alcoholica'},{product:'topocho',method:'vinagre de plátano',type:'acetica'}] },
 ];
+// Tipos de fermentación bioquímica: etiqueta + color + microorganismo/vía.
+const FERMENT_TYPES = {
+  alcoholica: { label:'Alcohólica', color:'#bb9af7', desc:'levaduras producen etanol (tepache, vino, sidra, chicha, kéfir de agua)' },
+  lactica:    { label:'Láctica',    color:'#9ece6a', desc:'bacterias lácticas producen ácido láctico (chucrut, miso, garum, kéfir)' },
+  acetica:    { label:'Acética',    color:'#e0af68', desc:'acetobacter produce ácido acético (vinagres, kombucha)' },
+  propionica: { label:'Propiónica', color:'#7aa2f7', desc:'propionibacterias producen ácido propiónico (quesos madurados)' },
+  butirica:   { label:'Butírica',   color:'#f7768e', desc:'clostridios producen ácido butírico (anaerobia intensa)' },
+};
+// Preparaciones de técnica avanzada (cultivo madre) aplicables al producto
+// recomendado: miso, garum, koji, kombucha, kéfir, tempeh, amazake…
+// Se sugieren según el TIPO de alimento (fruta, verdura/tubérculo, grano).
+const CRAFT_FERMENTS = [
+  { craft:'koji',     base:'inoculación con koji (Aspergillus oryzae) para azucarar el almidón', fits:['grano','tuberculo'], type:'lactica' },
+  { craft:'miso',     base:'miso: koji + leguminosa/tubérculo, maduración salada de meses',       fits:['grano','tuberculo'], type:'lactica' },
+  { craft:'amazake',  base:'amazake: koji sobre grano/tubérculo, dulce y sin alcohol',           fits:['grano','tuberculo'], type:'lactica' },
+  { craft:'garum',    base:'garum vegetal: fermentación enzimática salada para umami líquido',    fits:['verdura','tuberculo','grano'], type:'lactica' },
+  { craft:'kombucha', base:'kombucha: SCOBY sobre infusión azucarada del excedente',              fits:['fruta'], type:'acetica' },
+  { craft:'kéfir',    base:'kéfir de agua: granos de kéfir sobre jugo/pulpa del excedente',       fits:['fruta'], type:'alcoholica' },
+  { craft:'tempeh',   base:'tempeh: Rhizopus compacta el grano/legumbre en un bloque proteico',   fits:['grano'], type:'lactica' },
+];
+// Clasifica cada producto para saber qué técnicas avanzadas le encajan.
+const PRODUCT_KIND = {
+  // granos / pseudocereales
+  'maíz':'grano','café':'grano',
+  // tubérculos y raíces
+  'yuca':'tuberculo','yuca brava':'tuberculo','ñame':'tuberculo','cubio':'tuberculo','hibia':'tuberculo',
+  'arracacha':'tuberculo','achín':'tuberculo','topocho':'tuberculo','plátano':'tuberculo','chontaduro':'tuberculo',
+  // frutas
+  'mango':'fruta','corozo':'fruta','níspero':'fruta','uchuva':'fruta','curuba':'fruta','manzana':'fruta',
+  'mora':'fruta','lulo':'fruta','borojó':'fruta','banano':'fruta','copoazú':'fruta','arazá':'fruta','asaí':'fruta',
+  'marañón':'fruta','cítricos':'fruta','cidra':'fruta',
+  // otros
+  'suero costeño':'verdura','ají negro':'verdura'
+};
+// Directorio de HUERTAS URBANAS por región (referencias reales/representativas).
+// Bogotá: huertas del programa de Agricultura Urbana del Jardín Botánico de
+// Bogotá (dataset Datos Abiertos Bogotá). Otras regiones: huertas de referencia.
+const URBAN_GARDENS = {
+  'caribe': ['Huerta La Paz (Barranquilla)','Red de Huertas del Suroccidente','Huerta comunitaria Siape'],
+  'andina-fria': ['Huerta del Jardín Botánico de Bogotá','Huerta Mutualista (Chapinero)','Huerta La Alquería (Kennedy)','Huertas comunitarias de Ciudad Bolívar'],
+  'andina-cafe': ['Huerta Agroecológica Manizales','Red de Huertas del Eje Cafetero','Huerta La Colina'],
+  'pacifico': ['Azoteas agrícolas de Quibdó','Huertas de Patio del Atrato','Huerta comunitaria Tumaco'],
+  'amazonia': ['Chagras periurbanas de Leticia','Huerta Maloka Amazónica','Huertas familiares del Trapecio'],
+  'orinoquia': ['Huerta Agroecológica Villavicencio','Red de Conucos del Llano','Huerta La Esperanza'],
+};
+function gardensFor(regionId, seed){
+  const list = URBAN_GARDENS[regionId] || [];
+  if(!list.length) return [];
+  // devolver hasta 2, rotando con el seed para que varíe en el tiempo
+  const start = Math.floor(seed*list.length)%list.length;
+  const out=[list[start]];
+  if(list.length>1) out.push(list[(start+1)%list.length]);
+  return out;
+}
+// Preparaciones por "huella espacial": cuánto espacio/tiempo piden en casa.
+//   compact = frasco pequeño, días/semanas | large = vasija/maduración de meses
+const CRAFT_FOOTPRINT = { kombucha:'compact', 'kéfir':'compact', amazake:'compact',
+  koji:'large', miso:'large', garum:'large', tempeh:'compact' };
+function craftFor(product, seed, homeNormVal){
+  const kind = PRODUCT_KIND[product] || 'verdura';
+  let pool = CRAFT_FERMENTS.filter(c => c.fits.includes(kind));
+  if(!pool.length) return null;
+  // Vivienda pequeña (homeNormVal bajo) -> preferir preparaciones compactas;
+  // vivienda grande -> permitir maduraciones largas (miso, garum, koji).
+  if(homeNormVal!=null){
+    const want = homeNormVal < 0.5 ? 'compact' : 'large';
+    const pref = pool.filter(c => CRAFT_FOOTPRINT[c.craft] === want);
+    if(pref.length) pool = pref;
+  }
+  return pool[Math.floor(seed*pool.length)%pool.length];
+}
+// Normalizadores: densidad en escala log (Bogotá ~7800 vs Amazonas ~1) y pobreza 0..1.
+const MAX_LOG_DENSITY = Math.log10(8000);
+const densityNorm = (d) => Math.min(1, Math.max(0, Math.log10(Math.max(1, d)) / MAX_LOG_DENSITY));
+const povertyNorm = (p) => Math.min(1, Math.max(0, p / 100));
+// Tamaño de vivienda (m² promedio, DANE/CEED) normalizado ~40..120 m² -> 0..1.
+const homeNorm = (m2) => Math.min(1, Math.max(0, (m2 - 40) / 80));
 const DEFAULT_REGION = 'andina-fria';
 const regionById = (id) => REGIONS.find(r => r.id === id) || REGIONS[1];
 
+// ===========================================================================
+// PARSING de wikilinks y del Markdown ligero
+// ===========================================================================
 const WIKI = /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g;
 function extractWikilinks(body){ const out=[]; let m; WIKI.lastIndex=0; while((m=WIKI.exec(body))!==null){ out.push({id:m[1].trim()});} return out; }
 function flatten(chs){ const out=[]; const w=l=>{for(const c of l){out.push(c); if(c.children)w(c.children);}}; w(chs); return out; }
 const IMG=/^!\[([^\]]*)\]\(([^)]+)\)\s*$/, VID=/^@video\[([^\]]*)\]\(([^)]+)\)\s*$/;
 function parseBody(body){
-const lines=body.split(String.fromCharCode(10)); const blocks=[]; let para=[]; 
- const flush=()=>{const t=para.join(' ').trim(); if(t)blocks.push({kind:'p',text:t}); para=[];};
+  const lines=body.split(String.fromCharCode(10)); const blocks=[]; let para=[];
+  const flush=()=>{const t=para.join(' ').trim(); if(t)blocks.push({kind:'p',text:t}); para=[];};
   for(const raw of lines){ const line=raw.replace(/\s+$/,'');
     if(!line.trim()){flush();continue;}
     let mm;
@@ -190,6 +365,9 @@ const lines=body.split(String.fromCharCode(10)); const blocks=[]; let para=[];
   flush(); return blocks;
 }
 
+// ===========================================================================
+// GRAFO a partir del contenido
+// ===========================================================================
 function buildGraph(thesis){
   const byId=new Map(thesis.entities.map(e=>[e.id,e]));
   const chapters=flatten(thesis.chapters);
@@ -213,6 +391,9 @@ function buildGraph(thesis){
   return {nodes,links};
 }
 
+// ===========================================================================
+// DATOS EN VIVO: clima REAL por región (Open-Meteo) + alimentos simulados
+// ===========================================================================
 function useLiveData(regionId){
   const [snapshot,setSnapshot]=useState(null);
   const latest=useRef(null);
@@ -229,11 +410,24 @@ function useLiveData(regionId){
       {key:'price',label:'Precio promedio',unit:'COP/kg',base:3200,min:1800,max:5200,phase:4.4,freq:0.00009,amp:1400},
     ];
     const real={temperature:null,humidity:null}; let climateOk=false; let stopped=false;
+    // Datos demográficos EN VIVO (API-Colombia): población y superficie del
+    // departamento -> densidad real (proxy de sobrepoblación).
+    const demo={population:null,surface:null,density:null,ok:false};
     const fetchClimate=async()=>{
       try{
         const url=`https://api.open-meteo.com/v1/forecast?latitude=${region.lat}&longitude=${region.lon}&current=temperature_2m,relative_humidity_2m`;
         const res=await fetch(url); if(!res.ok)return; const j=await res.json();
         if(j.current){ real.temperature=j.current.temperature_2m; real.humidity=j.current.relative_humidity_2m; climateOk=true; }
+      }catch(e){}
+    };
+    const fetchDemographics=async()=>{
+      try{
+        const res=await fetch(`https://api-colombia.com/api/v1/Department/${region.deptId}`);
+        if(!res.ok)return; const j=await res.json();
+        if(j && j.population && j.surface){
+          demo.population=j.population; demo.surface=j.surface;
+          demo.density=j.population/j.surface; demo.ok=true;
+        }
       }catch(e){}
     };
     const sample=()=>{
@@ -246,57 +440,124 @@ function useLiveData(regionId){
         values[s.key]=(c-s.min)/(s.max-s.min);
         raw[s.key]={value:Math.round(c),unit:s.unit,label:s.label};
       }
-      const sourceLabel=climateOk?`Clima real de ${region.city} (Open-Meteo) + alimentos (demo)`:`${region.city}: conectando clima real…`;
-      return {t:now,values,raw,sourceLabel};
+      // demografía: densidad en vivo (o cálculo pendiente) + pobreza del DANE
+      const density=demo.ok?demo.density:null;
+      values.density=density!=null?densityNorm(density):0.5;
+      values.poverty=povertyNorm(region.poverty);
+      values.homeSize=homeNorm(region.homeSize);
+      if(density!=null){
+        raw.density={value:Math.round(density),unit:'hab/km²',label:'Densidad poblacional ('+region.dept+')'};
+      }
+      raw.poverty={value:region.poverty,unit:'% pobreza',label:'Pobreza monetaria ('+region.dept+')'};
+      raw.homeSize={value:region.homeSize,unit:'m² vivienda',label:'Tamaño de vivienda ('+region.city+')'};
+      const sourceLabel=climateOk
+        ? `Clima real de ${region.city} (Open-Meteo) · demografía ${region.dept} (API-Colombia + DANE)`
+        : `${region.city}: conectando datos reales…`;
+      return {t:now,values,raw,sourceLabel,demo:{...demo},regionId};
     };
     const push=()=>{ if(stopped)return; const snap=sample(); latest.current=snap; setSnapshot(snap); };
-    fetchClimate().then(push);
+    Promise.all([fetchClimate(),fetchDemographics()]).then(push);
     const ci=setInterval(fetchClimate,120000);
+    const di=setInterval(fetchDemographics,300000);
     push();
     const ti=setInterval(push,1500);
-    return ()=>{ stopped=true; clearInterval(ci); clearInterval(ti); };
+    return ()=>{ stopped=true; clearInterval(ci); clearInterval(di); clearInterval(ti); };
   },[regionId]);
   return {snapshot,latest};
 }
 
+// Modelo de efervescencia (energía, tensión, burst)
 let _prevTension=0,_burst=0,_lastT=0;
 const c01=x=>Math.min(1,Math.max(0,x)); const c11=x=>Math.min(1,Math.max(-1,x));
 function computeEffervescence(snap){
   if(!snap) return {energy:0.1,tension:0,burst:0};
   const v=snap.values;
   const harvest=v.harvest||0, waste=v.waste||0, production=v.production||0, fruit=v.fruit||0, veg=v.veg||0, humidity=v.humidity||0, temperature=v.temperature||0, price=v.price||0;
+  const density=v.density!=null?v.density:0; const poverty=v.poverty!=null?v.poverty:0;
   const abundance=(harvest+production)/2;
   const fruitDom=Math.max(0,fruit-veg);
-  const climate=c11((temperature-0.5)+(humidity-0.5));
+  const climate=c11((temperature-0.5)+(humidity-0.5));   // calor+humedad sube; frío+sequedad baja
   const crossWP=waste*(1-production);
   const crossHP=harvest*price;
   const tension=c01(crossWP*0.9+crossHP*0.6);
-  const energy=c01(0.15+abundance*0.4+fruitDom*0.35+tension*0.7+climate*0.3);
+  // Presión social: densidad (sobrepoblación) + pobreza (hambre) + desperdicio.
+  const socialPressure=c01(density*0.4+poverty*0.4+waste*0.2);
+  // La efervescencia sube también con esa presión social: donde más urge
+  // aprovechar el excedente, el campo "hierve" más.
+  const energy=c01(0.12+abundance*0.32+fruitDom*0.28+tension*0.55+climate*0.25+socialPressure*0.4);
   const now=snap.t; const dt=_lastT?Math.max(1,now-_lastT):1000;
   const rise=Math.max(0,tension-_prevTension);
   if(rise>0.02)_burst=c01(_burst+rise*6);
   _burst=c01(_burst-(dt/1000)*0.9);
   _prevTension=tension; _lastT=now;
-  return {energy,tension,burst:_burst};
+  return {energy,tension,burst:_burst,socialPressure};
+}
+// Color (hue) de las partículas según el TIPO de fermentación recomendado.
+const TYPE_HUE = { alcoholica:270, lactica:95, acetica:40, propionica:215, butirica:345 };
+function recommendedTypeHue(snap){
+  if(!snap||!snap.regionId) return null;
+  try{ const r=recommend(snap, snap.regionId); return r&&r.type?TYPE_HUE[r.type]:null; }catch(e){ return null; }
 }
 
+// Recomendación de fermentación — cruce FINAL:
+//   región + clima real + excedente/desperdicio + sobrepoblación (densidad)
+//   + hambre (pobreza DANE). Produce una sugerencia de qué fermento ofrecer
+//   al territorio y una lectura social del cruce.
 function recommend(snap,regionId){
   if(!snap)return null;
   const region=regionById(regionId); const v=snap.values;
   const fruit=v.fruit||0, veg=v.veg||0, waste=v.waste||0, humidity=v.humidity||0, temperature=v.temperature||0;
+  const density=v.density!=null?v.density:0.5;   // sobrepoblación 0..1
+  const poverty=v.poverty!=null?v.poverty:0.3;    // hambre/pobreza 0..1
   const climateScore=Math.min(1,Math.max(0,(temperature+humidity)/2));
   const useFruit=(fruit+waste*0.4)>=(veg+waste*0.4);
   const pool=useFruit?region.fruitFerments:region.vegFerments;
   const seed=(snap.t/60000)%1; const choice=pool[Math.floor(seed*pool.length)%pool.length];
+  // Preparación de técnica avanzada (miso, garum, koji, kombucha, kéfir…)
+  // aplicable al producto recomendado según su tipo (fruta/tubérculo/grano).
+  const home=v.homeSize!=null?v.homeSize:0.5;   // tamaño de vivienda 0..1
+  const craftSeed=(snap.t/90000)%1; const craft=craftFor(choice.product, craftSeed, home);
+  const gardens=gardensFor(regionId, (snap.t/120000)%1);  // huertas urbanas cercanas
   const eff=computeEffervescence(snap);
   const abundant=(useFruit?fruit:veg)>0.6||waste>0.6; const tipo=useFruit?'fruta':'verdura';
+
+  // Índice de PRIORIDAD SOCIAL: dónde urge más aprovechar el excedente.
+  // Alta pobreza (hambre) + alto desperdicio + alta densidad => prioridad alta.
+  const priority=c01(poverty*0.5+waste*0.3+density*0.2);
+  let priorityLabel = priority>0.66 ? 'alta' : (priority>0.4 ? 'media' : 'baja');
+
+  // Enfoque del fermento según el perfil del territorio.
+  let enfoque;
+  if(poverty>0.55 && waste>0.4)
+    enfoque=`En ${region.dept} coinciden alta pobreza (${region.poverty}%) y desperdicio elevado: fermentar ${choice.product} para conservar y redistribuir excedente puede mitigar el hambre.`;
+  else if(density>0.75)
+    enfoque=`${region.dept} es un territorio densamente poblado: fermentos como ${choice.method} ofrecen alimento estable y de larga vida para muchas personas.`;
+  else if(poverty>0.55)
+    enfoque=`${region.dept} tiene pobreza alta (${region.poverty}%): priorizar fermentos nutritivos y de bajo coste como ${choice.product}.`;
+  else
+    enfoque=`${region.dept}: condiciones moderadas; ${choice.product} aprovecha el excedente local sin urgencia social.`;
+
   let reason;
   if(climateScore<0.35) reason=`En ${region.name} (${region.city}) el clima está frío/seco ahora: la fermentación de ${choice.product} irá lenta, ideal para arranques largos.`;
-  else if(abundant) reason=`Excedente alto de ${tipo} en ${region.name} y clima cálido/húmedo (${region.city}): aprovecha el pico para fermentar ${choice.product} y evitar desperdicio.`;
+  else if(abundant) reason=`Excedente alto de ${tipo} en ${region.name} y clima cálido/húmedo (${region.city}): aprovecha el pico para fermentar ${choice.product}.`;
   else reason=`En ${region.name} las condiciones reales de ${region.city} favorecen fermentar ${choice.product}.`;
   if(eff.tension>0.5) reason+=' El sistema muestra tensión (desperdicio/precio): fermentar estabiliza el excedente.';
-  return {title:useFruit?'Fermentar fruta':'Fermentar verdura', product:choice.product, method:choice.method, reason, climateScore, region:region.name};
+
+  return {
+    title:useFruit?'Fermentar fruta':'Fermentar verdura',
+    product:choice.product, method:choice.method, type:choice.type,
+    craft: craft ? { name:craft.craft, base:craft.base, type:craft.type, footprint:CRAFT_FOOTPRINT[craft.craft] } : null,
+    reason, enfoque, climateScore,
+    region:region.name, dept:region.dept,
+    priority, priorityLabel,
+    density, poverty, home, homeSizeM2:region.homeSize,
+    gardens
+  };
 }
+
+// ===========================================================================
+// COMPONENTES
+// ===========================================================================
 function renderInline(text,index,onOpen,keyBase){
   const out=[]; let last=0,m,k=0; WIKI.lastIndex=0;
   while((m=WIKI.exec(text))!==null){
@@ -455,19 +716,62 @@ function ParticleField({liveRef}){
       const c=canvasRef.current; if(!c){rafRef.current=requestAnimationFrame(tick);return;} const ctx=c.getContext('2d'); if(!ctx)return;
       const w=c.clientWidth,hh=c.clientHeight;
       const eff=computeEffervescence(liveRef.current); const energy=eff.energy;
-      const rate=8+energy*160+eff.burst*220; spawnAcc.current+=rate*dt; const toSpawn=Math.floor(spawnAcc.current); spawnAcc.current-=toSpawn;
-      for(let i=0;i<toSpawn&&partsRef.current.length<1400;i++){
-        partsRef.current.push({x:Math.random()*w,y:hh+6,vx:(Math.random()-0.5)*(14+energy*40),vy:-(20+Math.random()*40+energy*120),
-          r:1.2+Math.random()*(2.5+energy*4),life:0,maxLife:1.6+Math.random()*2.2,hue:40-eff.tension*60+(Math.random()-0.5)*20});
+      // Color según el TIPO de fermentación recomendado (varía al cambiar de
+      // región / datos). Si no hay, cae al tono por tensión.
+      const typeHue=recommendedTypeHue(liveRef.current);
+      const coreHue=typeHue!=null?typeHue:(40-eff.tension*60);
+      // Tamaño de vivienda: casas grandes -> burbujas algo mayores (más "espacio").
+      const homeV=(liveRef.current&&liveRef.current.values&&liveRef.current.values.homeSize!=null)?liveRef.current.values.homeSize:0.5;
+      const sizeMul=0.8+homeV*0.6;
+
+      // NACIMIENTO: muchas partículas que aparecen en el borde inferior y suben
+      // despacio, de modo que SIEMPRE hay flujo visible en toda la columna.
+      const rate=90+energy*320+eff.burst*300; spawnAcc.current+=rate*dt; const toSpawn=Math.floor(spawnAcc.current); spawnAcc.current-=toSpawn;
+      for(let i=0;i<toSpawn&&partsRef.current.length<5000;i++){
+        partsRef.current.push({
+          x:Math.random()*w, y:hh+6,
+          vx:(Math.random()-0.5)*(8+energy*22),
+          vy:-(28+Math.random()*34+energy*70),   // ascenso más lento => se ve el recorrido completo
+          r:(1.1+Math.random()*(2.0+energy*2.6))*sizeMul,
+          life:0, maxLife:9+Math.random()*5,      // viven mucho: cruzan toda la pantalla
+          hue:coreHue+(Math.random()-0.5)*24
+        });
       }
-      ctx.globalCompositeOperation='source-over'; ctx.fillStyle='rgba(10,10,12,0.22)'; ctx.fillRect(0,0,w,hh);
+
+      // Limpieza del fondo en negro cada frame (sin estela: flujo nítido).
+      ctx.globalCompositeOperation='source-over'; ctx.fillStyle='#0a0a0c'; ctx.fillRect(0,0,w,hh);
+
+      // ACUMULACIÓN SÓLIDA ARRIBA: una banda superior cuya altura y opacidad
+      // crecen con la energía. Simula el "llenarse hasta quedar sólido".
+      const fillH=hh*(0.12+energy*0.5);           // altura de la masa superior
+      const grad=ctx.createLinearGradient(0,0,0,fillH);
+      const light=56+energy*14, sat=68+eff.tension*26, baseHue=coreHue;
+      grad.addColorStop(0, `hsla(${baseHue},${sat}%,${light}%,${0.65+energy*0.3})`); // sólido arriba
+      grad.addColorStop(1, `hsla(${baseHue},${sat}%,${light}%,0)`);                   // se difumina hacia abajo
+      ctx.fillStyle=grad; ctx.fillRect(0,0,w,fillH);
+
       ctx.globalCompositeOperation='lighter';
-      const turb=10+energy*90; const ps=partsRef.current;
-      for(let i=ps.length-1;i>=0;i--){const p=ps[i]; p.life+=dt; if(p.life>=p.maxLife||p.y<-10){ps.splice(i,1);continue;}
-        p.vx+=Math.sin(now*0.004+p.y*0.05)*turb*dt; p.vy-=energy*30*dt; p.x+=p.vx*dt; p.y+=p.vy*dt;
+      const turb=10+energy*80; const ps=partsRef.current;
+      for(let i=ps.length-1;i>=0;i--){
+        const p=ps[i]; p.life+=dt;
+        if(p.life>=p.maxLife||p.y<-10){ps.splice(i,1);continue;}
+
+        // DENSIDAD CRECIENTE HACIA ARRIBA: 'up' va de 0 (abajo) a 1 (arriba).
+        const up=Math.max(0, Math.min(1, 1-(p.y/hh)));
+        p.vx+=Math.sin(now*0.004+p.y*0.05)*turb*dt;
+        p.x+=p.vx*dt; p.y+=p.vy*dt;
+        // fricción suave que crece hacia arriba: frena poco a poco (acumulación)
+        p.vy*=(1-0.35*dt*up);
         if(p.x<0)p.x+=w; if(p.x>w)p.x-=w;
-        const k=1-p.life/p.maxLife, alpha=0.12+k*0.55, sat=70+eff.tension*25, light=55+energy*15;
-        ctx.beginPath(); ctx.fillStyle=`hsla(${p.hue},${sat}%,${light}%,${alpha})`; ctx.arc(p.x,p.y,p.r*(0.6+k),0,Math.PI*2); ctx.fill();}
+
+        // aspecto: más arriba => más grande y más opaca (sensación de "lleno")
+        const k=1-p.life/p.maxLife;
+        const alpha=Math.min(0.92, 0.22+up*0.6)*Math.min(1,k*3);
+        const rr=p.r*(0.85+up*1.0);
+        ctx.beginPath();
+        ctx.fillStyle=`hsla(${p.hue},${sat}%,${light}%,${alpha})`;
+        ctx.arc(p.x,p.y,rr,0,Math.PI*2); ctx.fill();
+      }
       ctx.globalCompositeOperation='source-over';
       rafRef.current=requestAnimationFrame(tick);
     };
@@ -489,7 +793,40 @@ function LivePanel({snapshot,regionId}){
         h('span',{className:'mono muted',style:{fontSize:10}},'clima '+Math.round(rec.climateScore*100)+'%')),
       h('p',{style:{marginTop:4,fontSize:14,fontWeight:600,color:'#f0e6d6'}},rec.title+': ',h('span',{className:'accent'},rec.product)),
       h('p',{className:'mono muted',style:{marginTop:2,fontSize:11}},'técnica: '+rec.method),
-      h('p',{style:{marginTop:8,fontSize:12,lineHeight:1.5,color:'#cfcfd6'}},rec.reason)),
+      // TIPO de fermentación bioquímica, destacado con color por tipo
+      (FERMENT_TYPES[rec.type]) && h('div',{style:{marginTop:8,display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}},
+        h('span',{style:{display:'inline-flex',alignItems:'center',gap:6,border:'1px solid '+FERMENT_TYPES[rec.type].color,
+          color:FERMENT_TYPES[rec.type].color,borderRadius:999,padding:'3px 10px',fontSize:11,fontFamily:'ui-monospace,monospace'}},
+          h('span',{style:{width:8,height:8,borderRadius:999,background:FERMENT_TYPES[rec.type].color,display:'inline-block'}}),
+          'Fermentación '+FERMENT_TYPES[rec.type].label),
+        h('span',{className:'mono muted',style:{fontSize:10}},FERMENT_TYPES[rec.type].desc)),
+      h('p',{style:{marginTop:8,fontSize:12,lineHeight:1.5,color:'#cfcfd6'}},rec.reason),
+      // Preparación de técnica avanzada (miso, garum, koji, kombucha, kéfir…)
+      rec.craft && h('div',{style:{marginTop:10,border:'1px dashed #3a3a44',borderRadius:8,padding:'8px 10px'}},
+        h('div',{style:{display:'flex',alignItems:'center',gap:6}},
+          h('span',{className:'mono',style:{fontSize:10,textTransform:'uppercase',letterSpacing:'.06em',color:'#2ac3de'}},'Preparación avanzada'),
+          h('span',{className:'mono',style:{fontSize:12,fontWeight:600,color:'#f0e6d6',textTransform:'capitalize'}},rec.craft.name)),
+        h('p',{style:{marginTop:4,fontSize:12,lineHeight:1.5,color:'#cfcfd6'}},rec.craft.base),
+        h('p',{className:'mono muted',style:{marginTop:4,fontSize:10}},
+          'vivienda '+rec.homeSizeM2+' m² ('+rec.dept+') · '+
+          (rec.craft.footprint==='compact'?'preparación compacta, apta para espacios pequeños':'maduración amplia, requiere más espacio'))),
+      // Prioridad social: identifica zonas con alta población + hambre + desperdicio
+      h('div',{style:{marginTop:10,paddingTop:10,borderTop:'1px solid #26262e'}},
+        h('div',{style:{display:'flex',alignItems:'center',gap:8}},
+          h('span',{className:'mono',style:{fontSize:10,textTransform:'uppercase',letterSpacing:'.06em',
+            color: rec.priority>0.66?'#f7768e':(rec.priority>0.4?'#e0af68':'#9ece6a')}},
+            'Prioridad de aprovechamiento: '+rec.priorityLabel),
+          h('span',{className:'mono muted',style:{fontSize:10}},Math.round(rec.priority*100)+'%')),
+        h('p',{style:{marginTop:6,fontSize:12,lineHeight:1.5,color:'#cfcfd6'}},rec.enfoque),
+        h('div',{className:'mono muted',style:{marginTop:6,fontSize:10,display:'flex',flexWrap:'wrap',gap:'4px 12px'}},
+          h('span',null,'población '+Math.round(rec.density*100)+'%'),
+          h('span',null,'hambre/pobreza '+Math.round(rec.poverty*100)+'%'),
+          h('span',null,'desperdicio '+Math.round((snapshot.values.waste||0)*100)+'%'))),
+      // Huertas urbanas cercanas donde conseguir/llevar el excedente
+      (rec.gardens && rec.gardens.length>0) && h('div',{style:{marginTop:10,paddingTop:10,borderTop:'1px solid #26262e'}},
+        h('span',{className:'mono',style:{fontSize:10,textTransform:'uppercase',letterSpacing:'.06em',color:'#9ece6a'}},'Huertas urbanas cercanas'),
+        h('ul',{style:{listStyle:'none',padding:0,margin:'6px 0 0'}},
+          rec.gardens.map((g,i)=>h('li',{key:i,style:{fontSize:12,color:'#cfcfd6',lineHeight:1.5}},'🌱 '+g))))),
     h('div',{style:{marginTop:20,display:'flex',flexDirection:'column',gap:16}},
       Object.entries(snapshot.raw).map(([key,r])=>{const norm=snapshot.values[key]||0; return h('div',{key},
         h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'baseline'}},
@@ -498,10 +835,13 @@ function LivePanel({snapshot,regionId}){
         h('div',{className:'bar-track',style:{marginTop:4}},h('div',{className:'bar-fill',style:{width:Math.round(norm*100)+'%'}})),
         h('div',{className:'mono muted',style:{marginTop:2,fontSize:10}},'clave: '+key+' · intensidad '+Math.round(norm*100)+'%'));})),
     h('p',{className:'mono muted',style:{marginTop:24,border:'1px solid #26262e',background:'#0a0a0c',borderRadius:6,padding:'8px 12px',fontSize:12,lineHeight:1.5}},
-      'La temperatura y la humedad son reales (Open-Meteo) según la región. El resto de variables alimentarias son una simulación de demostración. La efervescencia de las partículas sube con cosecha/producción, con más fruta que verdura y con calor+humedad; baja con frío+sequedad; y estalla en los cruces de tensión.')
+      'Fuentes: clima en vivo (Open-Meteo); densidad poblacional en vivo (API-Colombia); pobreza (DANE 2023); tamaño de vivienda (DANE · Censo de Edificaciones); huertas urbanas (Datos Abiertos Bogotá · Jardín Botánico, y referencias por región). Cosecha, desperdicio, producción y precio son simulación de demostración. La recomendación final cruza clima + excedente + sobrepoblación + hambre + desperdicio + tamaño de vivienda para proponer alimento, técnica, tipo de fermentación, preparación avanzada y huertas urbanas cercanas.')
   );
 }
 
+// ===========================================================================
+// APP
+// ===========================================================================
 function App(){
   const [tab,setTab]=useState('lectura');
   const [selectedId,setSelectedId]=useState(null);
@@ -522,7 +862,7 @@ function App(){
     h('main',null,
       tab==='lectura'&&h(Reader,{focusChapter,onOpen:openInGraph}),
       tab==='red'&&h('div',{className:'split'},
-        h('div',{style:{position:'relative',minWidth:0,flex:1}},
+        h('div',{className:'stage'},
           h('div',{className:'chip-row'},ALL_KINDS.map(k=>{const on=activeKinds.has(k);return h('button',{key:k,className:'chip',
             style:{borderColor:KIND_COLORS[k],color:on?'#0a0a0c':KIND_COLORS[k],background:on?KIND_COLORS[k]:'transparent',opacity:on?1:0.6},
             onClick:()=>toggleKind(k)},KIND_LABELS[k]);})),
@@ -530,7 +870,7 @@ function App(){
           h('p',{className:'hint'},'Red pura · tamaño = recurrencia · arrastra, zoom con rueda')),
         h('aside',{className:'panel'},h(NodePanel,{graph,node:selectedNode,onSelect:setSelectedId,onGoToChapter:cid=>{setFocusChapter(cid);setTab('lectura');}}))),
       tab==='vivo'&&h('div',{className:'split'},
-        h('div',{style:{position:'relative',minWidth:0,flex:1}},
+        h('div',{className:'stage'},
           h('div',{className:'chip-row'},
             h('span',{className:'mono muted',style:{fontSize:11,textTransform:'uppercase',letterSpacing:'.06em'}},'Región'),
             h('select',{value:regionId,onChange:e=>setRegionId(e.target.value)},REGIONS.map(r=>h('option',{key:r.id,value:r.id},r.name+' · '+r.city)))),
@@ -540,7 +880,10 @@ function App(){
     ));
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(h(App));
+const __root = document.getElementById('root');
+__root.innerHTML = '';
+ReactDOM.createRoot(__root).render(h(App));
+} // fin de __APP_BOOT__
 </script>
 </body>
 </html>
