@@ -1,0 +1,549 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Fermentación Doméstica</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body, #root { height: 100%; margin: 0; }
+  body {
+    background: #0a0a0c; color: #e7e7ea;
+    font-family: Georgia, Cambria, 'Times New Roman', serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .app { display: flex; flex-direction: column; height: 100%; }
+  header.bar {
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid #26262e; padding: 12px 20px;
+  }
+  .title { font-weight: 600; }
+  .author { margin-left: 12px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: #8a8a99; }
+  nav.tabs { display: flex; gap: 4px; }
+  nav.tabs button {
+    border: 0; background: transparent; color: #8a8a99; cursor: pointer;
+    padding: 6px 12px; border-radius: 6px; font-size: 14px; font-family: inherit;
+  }
+  nav.tabs button:hover { background: rgba(255,255,255,.05); color: #fff; }
+  nav.tabs button.active { background: rgba(255,255,255,.10); color: #fff; }
+  main { flex: 1; min-height: 0; }
+
+  /* Lectura */
+  .reader { display: flex; height: 100%; }
+  .toc { width: 256px; flex-shrink: 0; border-right: 1px solid #26262e; padding: 16px; overflow-y: auto; }
+  .toc .lbl { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: #8a8a99; margin-bottom: 12px; }
+  .toc button { display: block; text-align: left; background: none; border: 0; color: #cfcfd6; cursor: pointer; font-family: inherit; font-size: 14px; padding: 3px 0; }
+  .toc button:hover { color: #d8c3a5; }
+  .toc .num { font-family: ui-monospace, monospace; font-size: 12px; color: #8a8a99; }
+  .toc ul { list-style: none; padding-left: 0; margin: 0; }
+  .toc ul ul { border-left: 1px solid #26262e; padding-left: 12px; margin-top: 4px; }
+  article.col { max-width: 672px; margin: 0 auto; flex: 1; overflow-y: auto; padding: 40px 24px; }
+  article.col h1 { font-size: 2rem; line-height: 1.15; margin: 0 0 .75rem; font-weight: 600; }
+  article.col h2 { font-size: 1.35rem; margin: 2rem 0 .5rem; font-weight: 600; color: #d8c3a5; }
+  article.col h3 { font-size: 1.1rem; margin: 1.5rem 0 .5rem; color: #c9c9d1; }
+  article.col p { line-height: 1.75; margin: 0 0 1rem; color: #d5d5dc; }
+  article.col blockquote { border-left: 2px solid #d8c3a5; padding-left: 1rem; color: #b9b9c4; font-style: italic; margin: 1rem 0; }
+  article.col figure { margin: 1.5rem 0; }
+  article.col figure img, article.col video { width: 100%; border-radius: 6px; border: 1px solid #26262e; }
+  article.col figcaption { font-size: .85rem; color: #8a8a99; margin-top: .4rem; font-family: ui-monospace, monospace; }
+  .docheader { margin-bottom: 40px; border-bottom: 1px solid #26262e; padding-bottom: 24px; }
+  .docheader .sub { color: #8a8a99; }
+  .docheader .auth { margin-top: 8px; font-family: ui-monospace, monospace; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: #d8c3a5; }
+  .wikilink { cursor: pointer; border-bottom: 1px dotted; text-decoration: none; }
+  .wikilink:hover { background: rgba(122,162,247,.12); }
+
+  /* paneles laterales */
+  .split { display: flex; height: 100%; }
+  .canvas-wrap { position: relative; min-width: 0; flex: 1; overflow: hidden; background: #0a0a0c; }
+  canvas { width: 100%; height: 100%; display: block; }
+  aside.panel { width: 320px; flex-shrink: 0; border-left: 1px solid #26262e; background: #121216; overflow-y: auto; }
+  .pad { padding: 20px; }
+  .chip-row { position: absolute; left: 12px; top: 12px; z-index: 10; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .chip { border: 1px solid; border-radius: 999px; padding: 4px 10px; font-size: 11px; cursor: pointer; font-family: ui-monospace, monospace; background: transparent; }
+  .hint { position: absolute; bottom: 12px; left: 12px; font-family: ui-monospace, monospace; font-size: 11px; color: #8a8a99; pointer-events: none; }
+  select { border: 1px solid #26262e; background: #121216; color: #e7e7ea; border-radius: 6px; padding: 4px 8px; font-family: ui-monospace, monospace; font-size: 12px; }
+  .muted { color: #8a8a99; }
+  .accent { color: #d8c3a5; }
+  .metric { border: 1px solid #26262e; background: #0a0a0c; border-radius: 6px; padding: 8px 12px; }
+  .bar-track { height: 8px; width: 100%; overflow: hidden; border-radius: 999px; background: #0a0a0c; border: 1px solid #26262e; }
+  .bar-fill { height: 100%; border-radius: 999px; background: #d8c3a5; transition: width .7s; }
+  .rec-box { border: 1px solid rgba(216,195,165,.4); background: rgba(216,195,165,.06); border-radius: 10px; padding: 12px; }
+  .pill { border: 1px solid; border-radius: 999px; padding: 4px 10px; font-size: 12px; background: none; color: #dedee4; cursor: pointer; }
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-thumb { background: #26262e; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-quadtree@3/dist/d3-quadtree.min.js" crossorigin></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-dispatch@3/dist/d3-dispatch.min.js" crossorigin></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-timer@3/dist/d3-timer.min.js" crossorigin></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-force@3/dist/d3-force.min.js" crossorigin></script>
+
+<script>
+const { useState, useMemo, useRef, useEffect, createElement: h, Fragment } = React;
+
+const THESIS = {
+  title: 'Fermentación Doméstica',
+  author: 'Nombre del Artista',
+  subtitle: 'Una investigación artística sobre clima, excedente y fermentación en el territorio colombiano',
+  chapters: [
+    { id:'cap-1', number:'1', title:'Introducción: la cocina como laboratorio',
+      body:`# La cocina como laboratorio
+
+Esta investigación parte de un gesto cotidiano: [[concepto-fermentacion|fermentar]] en casa. Propongo entender la [[concepto-fermentacion|fermentación]] como una práctica artística que cruza [[concepto-clima|clima]], [[concepto-territorio|territorio]] y [[concepto-excedente|excedente]] alimentario.
+
+El marco dialoga con [[autor-katz|Sandor Katz]] y la [[teoria-metabolismo|teoría del metabolismo social]]. Metodológicamente se apoya en el [[metodo-registro|registro de campo]] y la [[metodo-cartografia|cartografía de saberes]].
+
+> Fermentar es dejar que el tiempo y los microbios cocinen por nosotros.
+
+![Vasijas de fermentación en cocina doméstica](https://images.unsplash.com/photo-1589010588553-46e8e7c21788?w=1200&q=70)` },
+    { id:'cap-2', number:'2', title:'Marco conceptual',
+      body:`# Marco conceptual
+
+El núcleo articula tres nociones: [[concepto-fermentacion|fermentación]], [[concepto-excedente|excedente]] y [[concepto-clima|clima]], tejidas en una [[categoria-trama|trama]] metabólica.`,
+      children:[
+        { id:'cap-2-1', number:'2.1', title:'El excedente como punto de partida',
+          body:`## El excedente como punto de partida
+
+El [[concepto-excedente|excedente]] de cosecha —lo que sobra, lo que se descarta— es la materia prima. Aquí la [[material-fruta|fruta]] y la [[material-verdura|verdura]] dejan de ser residuo para volverse fermento. Dialoga con [[autor-katz|Sandor Katz]].` },
+        { id:'cap-2-2', number:'2.2', title:'El clima como co-autor',
+          body:`## El clima como co-autor
+
+La [[material-temperatura|temperatura]] y la [[material-humedad|humedad]] del [[concepto-territorio|territorio]] deciden qué fermenta y cómo. El [[concepto-clima|clima]] colombiano, con sus pisos térmicos, es un co-autor de cada receta.
+
+@video[Proceso de fermentación acelerada (marcador de posición)](https://www.w3schools.com/html/mov_bbb.mp4)` },
+      ]},
+    { id:'cap-3', number:'3', title:'Metodología',
+      body:`# Metodología
+
+El proceso combina [[metodo-registro|registro de campo]], [[metodo-cartografia|cartografía de saberes]] y la lectura de datos abiertos de [[concepto-excedente|excedente]] y [[concepto-clima|clima]] en tiempo real, que reconfiguran la obra.
+
+![Mapa de saberes fermentativos](https://images.unsplash.com/photo-1524661135-423995f22d0b?w=1200&q=70)` },
+  ],
+  entities: [
+    { id:'concepto-fermentacion', label:'Fermentación', kind:'concepto', summary:'Transformación microbiana del excedente; práctica central.' },
+    { id:'concepto-clima', label:'Clima', kind:'concepto', summary:'Condición atmosférica que decide qué y cómo fermenta.', liveKey:'temperature' },
+    { id:'concepto-territorio', label:'Territorio', kind:'concepto', summary:'Los pisos térmicos de Colombia como co-autores.', liveKey:'humidity' },
+    { id:'concepto-excedente', label:'Excedente', kind:'concepto', summary:'Lo que sobra de la cosecha; materia prima del fermento.', liveKey:'waste' },
+    { id:'autor-katz', label:'Sandor Katz', kind:'autor', summary:'Autor de referencia sobre fermentación salvaje.' },
+    { id:'teoria-metabolismo', label:'Metabolismo social', kind:'teoria', summary:'Flujos de materia y energía entre sociedad y naturaleza.' },
+    { id:'metodo-registro', label:'Registro de campo', kind:'metodo', summary:'Documentación sensorial y fotográfica del proceso.' },
+    { id:'metodo-cartografia', label:'Cartografía de saberes', kind:'metodo', summary:'Mapear prácticas fermentativas por región.' },
+    { id:'categoria-trama', label:'Trama', kind:'categoria', summary:'Agrupa las nociones que se modulan mutuamente.', relatedTo:['concepto-fermentacion','concepto-excedente','concepto-clima'] },
+    { id:'material-fruta', label:'Fruta', kind:'material', summary:'Producción de fruta fermentable.', liveKey:'fruit' },
+    { id:'material-verdura', label:'Verdura', kind:'material', summary:'Producción de verdura fermentable.', liveKey:'veg' },
+    { id:'material-temperatura', label:'Temperatura', kind:'material', summary:'Temperatura real de la región (clima en vivo).', liveKey:'temperature' },
+    { id:'material-humedad', label:'Humedad', kind:'material', summary:'Humedad real de la región (clima en vivo).', liveKey:'humidity' },
+  ],
+};
+
+const KIND_COLORS = { concepto:'#7aa2f7', autor:'#e0af68', teoria:'#bb9af7', metodo:'#9ece6a', categoria:'#f7768e', material:'#2ac3de' };
+const KIND_LABELS = { concepto:'Concepto', autor:'Autor', teoria:'Teoría', metodo:'Método', categoria:'Categoría', material:'Material' };
+const ALL_KINDS = ['concepto','autor','teoria','metodo','categoria','material'];
+const REGIONS = [
+  { id:'caribe', name:'Caribe', city:'Barranquilla', lat:10.96, lon:-74.8,
+    fruitFerments:[{product:'mango',method:'tepache de mango'},{product:'corozo',method:'vino de corozo'},{product:'níspero',method:'pulpa fermentada'}],
+    vegFerments:[{product:'yuca',method:'masa agria (casabe)'},{product:'ñame',method:'fermentado láctico'},{product:'suero costeño',method:'leche fermentada'}] },
+  { id:'andina-fria', name:'Andina (altiplano frío)', city:'Bogotá', lat:4.61, lon:-74.08,
+    fruitFerments:[{product:'uchuva',method:'kombucha de uchuva'},{product:'curuba',method:'vinagre de curuba'},{product:'manzana',method:'sidra lenta'}],
+    vegFerments:[{product:'repollo',method:'chucrut (lento)'},{product:'cubio',method:'cubio soleado y fermentado'},{product:'hibia',method:'encurtido láctico'}] },
+  { id:'andina-cafe', name:'Andina (zona cafetera)', city:'Manizales', lat:5.07, lon:-75.52,
+    fruitFerments:[{product:'café',method:'fermentación de la pulpa (honey/natural)'},{product:'mora',method:'vino de mora'},{product:'lulo',method:'kombucha de lulo'}],
+    vegFerments:[{product:'plátano',method:'vinagre de plátano'},{product:'arracacha',method:'encurtido láctico'},{product:'cidra',method:'fermentado suave'}] },
+  { id:'pacifico', name:'Pacífico', city:'Quibdó', lat:5.69, lon:-76.66,
+    fruitFerments:[{product:'borojó',method:'bebida fermentada de borojó'},{product:'chontaduro',method:'masa fermentada'},{product:'banano',method:'vinagre de banano'}],
+    vegFerments:[{product:'yuca brava',method:'fermentación detoxificante'},{product:'ñame',method:'fermentado láctico'},{product:'achín',method:'encurtido'}] },
+  { id:'amazonia', name:'Amazonía', city:'Leticia', lat:-4.21, lon:-69.94,
+    fruitFerments:[{product:'copoazú',method:'pulpa fermentada'},{product:'arazá',method:'vino de arazá'},{product:'asaí',method:'fermentado de asaí'}],
+    vegFerments:[{product:'yuca brava',method:'chicha / fariña fermentada'},{product:'ají negro',method:'tucupí'},{product:'ñame',method:'fermentado láctico'}] },
+  { id:'orinoquia', name:'Orinoquía (Llanos)', city:'Villavicencio', lat:4.15, lon:-73.63,
+    fruitFerments:[{product:'mango',method:'tepache de mango'},{product:'marañón',method:'vino de marañón'},{product:'cítricos',method:'vinagre cítrico'}],
+    vegFerments:[{product:'yuca',method:'masato de yuca'},{product:'maíz',method:'chicha de maíz'},{product:'topocho',method:'vinagre de plátano'}] },
+];
+const DEFAULT_REGION = 'andina-fria';
+const regionById = (id) => REGIONS.find(r => r.id === id) || REGIONS[1];
+
+const WIKI = /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g;
+function extractWikilinks(body){ const out=[]; let m; WIKI.lastIndex=0; while((m=WIKI.exec(body))!==null){ out.push({id:m[1].trim()});} return out; }
+function flatten(chs){ const out=[]; const w=l=>{for(const c of l){out.push(c); if(c.children)w(c.children);}}; w(chs); return out; }
+const IMG=/^!\[([^\]]*)\]\(([^)]+)\)\s*$/, VID=/^@video\[([^\]]*)\]\(([^)]+)\)\s*$/;
+function parseBody(body){
+  const lines=body.replace(/\r
+/g,'
+').split('
+'); const blocks=[]; let para=[];
+  const flush=()=>{const t=para.join(' ').trim(); if(t)blocks.push({kind:'p',text:t}); para=[];};
+  for(const raw of lines){ const line=raw.replace(/\s+$/,'');
+    if(!line.trim()){flush();continue;}
+    let mm;
+    if((mm=line.match(IMG))){flush();blocks.push({kind:'image',caption:mm[1],src:mm[2]});continue;}
+    if((mm=line.match(VID))){flush();blocks.push({kind:'video',caption:mm[1],src:mm[2]});continue;}
+    if(line.startsWith('### ')){flush();blocks.push({kind:'h3',text:line.slice(4)});}
+    else if(line.startsWith('## ')){flush();blocks.push({kind:'h2',text:line.slice(3)});}
+    else if(line.startsWith('# ')){flush();blocks.push({kind:'h1',text:line.slice(2)});}
+    else if(line.startsWith('> ')){flush();blocks.push({kind:'quote',text:line.slice(2)});}
+    else para.push(line);
+  }
+  flush(); return blocks;
+}
+
+function buildGraph(thesis){
+  const byId=new Map(thesis.entities.map(e=>[e.id,e]));
+  const chapters=flatten(thesis.chapters);
+  const rec=new Map(), chaptersOf=new Map(), lw=new Map();
+  const bump=(m,k,by=1)=>m.set(k,(m.get(k)||0)+by);
+  const pk=(a,b)=>a<b?a+'__'+b:b+'__'+a;
+  for(const ch of chapters){
+    const uniq=new Set();
+    for(const {id} of extractWikilinks(ch.body)){
+      if(!byId.has(id))continue;
+      bump(rec,id); if(!chaptersOf.has(id))chaptersOf.set(id,new Set()); chaptersOf.get(id).add(ch.id); uniq.add(id);
+    }
+    const ids=[...uniq];
+    for(let i=0;i<ids.length;i++)for(let j=i+1;j<ids.length;j++)bump(lw,pk(ids[i],ids[j]));
+  }
+  for(const e of thesis.entities)for(const o of (e.relatedTo||[]))if(byId.has(o))bump(lw,pk(e.id,o),2);
+  const deg=new Map(), links=[];
+  for(const [k,w] of lw){const [s,t]=k.split('__'); links.push({source:s,target:t,weight:w}); bump(deg,s);bump(deg,t);}
+  const nodes=thesis.entities.map(e=>({id:e.id,label:e.label,kind:e.kind,summary:e.summary,liveKey:e.liveKey,
+    recurrence:rec.get(e.id)||0, degree:deg.get(e.id)||0, chapters:[...(chaptersOf.get(e.id)||[])]}));
+  return {nodes,links};
+}
+
+function useLiveData(regionId){
+  const [snapshot,setSnapshot]=useState(null);
+  const latest=useRef(null);
+  useEffect(()=>{
+    const region=regionById(regionId);
+    const series=[
+      {key:'harvest',label:'Alimentos en cosecha',unit:'t/día',base:420,min:120,max:900,phase:0,freq:0.00018,amp:260},
+      {key:'waste',label:'Desperdicio de alimentos',unit:'t/día',base:180,min:40,max:420,phase:1.7,freq:0.00026,amp:150},
+      {key:'production',label:'Producción de ingredientes',unit:'índice',base:100,min:55,max:160,phase:3.1,freq:0.00012,amp:42},
+      {key:'fruit',label:'Producción de frutas',unit:'t/día',base:260,min:60,max:520,phase:0.8,freq:0.00021,amp:200},
+      {key:'veg',label:'Producción de verduras',unit:'t/día',base:260,min:60,max:520,phase:2.5,freq:0.00016,amp:200},
+      {key:'humidity',label:'Humedad',unit:'%',base:70,min:40,max:98,phase:5,freq:0.00014,amp:26},
+      {key:'temperature',label:'Temperatura',unit:'°C',base:18,min:8,max:30,phase:1.2,freq:0.00011,amp:10},
+      {key:'price',label:'Precio promedio',unit:'COP/kg',base:3200,min:1800,max:5200,phase:4.4,freq:0.00009,amp:1400},
+    ];
+    const real={temperature:null,humidity:null}; let climateOk=false; let stopped=false;
+    const fetchClimate=async()=>{
+      try{
+        const url=`https://api.open-meteo.com/v1/forecast?latitude=${region.lat}&longitude=${region.lon}&current=temperature_2m,relative_humidity_2m`;
+        const res=await fetch(url); if(!res.ok)return; const j=await res.json();
+        if(j.current){ real.temperature=j.current.temperature_2m; real.humidity=j.current.relative_humidity_2m; climateOk=true; }
+      }catch(e){}
+    };
+    const sample=()=>{
+      const now=Date.now(); const values={}, raw={};
+      for(const s of series){
+        let c;
+        if(s.key==='temperature'&&real.temperature!=null) c=Math.min(s.max,Math.max(s.min,real.temperature));
+        else if(s.key==='humidity'&&real.humidity!=null) c=Math.min(s.max,Math.max(s.min,real.humidity));
+        else { const wv=Math.sin(now*s.freq+s.phase); const jt=(Math.random()-0.5)*0.25; c=Math.min(s.max,Math.max(s.min,s.base+s.amp*(wv*0.8+jt))); }
+        values[s.key]=(c-s.min)/(s.max-s.min);
+        raw[s.key]={value:Math.round(c),unit:s.unit,label:s.label};
+      }
+      const sourceLabel=climateOk?`Clima real de ${region.city} (Open-Meteo) + alimentos (demo)`:`${region.city}: conectando clima real…`;
+      return {t:now,values,raw,sourceLabel};
+    };
+    const push=()=>{ if(stopped)return; const snap=sample(); latest.current=snap; setSnapshot(snap); };
+    fetchClimate().then(push);
+    const ci=setInterval(fetchClimate,120000);
+    push();
+    const ti=setInterval(push,1500);
+    return ()=>{ stopped=true; clearInterval(ci); clearInterval(ti); };
+  },[regionId]);
+  return {snapshot,latest};
+}
+
+let _prevTension=0,_burst=0,_lastT=0;
+const c01=x=>Math.min(1,Math.max(0,x)); const c11=x=>Math.min(1,Math.max(-1,x));
+function computeEffervescence(snap){
+  if(!snap) return {energy:0.1,tension:0,burst:0};
+  const v=snap.values;
+  const harvest=v.harvest||0, waste=v.waste||0, production=v.production||0, fruit=v.fruit||0, veg=v.veg||0, humidity=v.humidity||0, temperature=v.temperature||0, price=v.price||0;
+  const abundance=(harvest+production)/2;
+  const fruitDom=Math.max(0,fruit-veg);
+  const climate=c11((temperature-0.5)+(humidity-0.5));
+  const crossWP=waste*(1-production);
+  const crossHP=harvest*price;
+  const tension=c01(crossWP*0.9+crossHP*0.6);
+  const energy=c01(0.15+abundance*0.4+fruitDom*0.35+tension*0.7+climate*0.3);
+  const now=snap.t; const dt=_lastT?Math.max(1,now-_lastT):1000;
+  const rise=Math.max(0,tension-_prevTension);
+  if(rise>0.02)_burst=c01(_burst+rise*6);
+  _burst=c01(_burst-(dt/1000)*0.9);
+  _prevTension=tension; _lastT=now;
+  return {energy,tension,burst:_burst};
+}
+
+function recommend(snap,regionId){
+  if(!snap)return null;
+  const region=regionById(regionId); const v=snap.values;
+  const fruit=v.fruit||0, veg=v.veg||0, waste=v.waste||0, humidity=v.humidity||0, temperature=v.temperature||0;
+  const climateScore=Math.min(1,Math.max(0,(temperature+humidity)/2));
+  const useFruit=(fruit+waste*0.4)>=(veg+waste*0.4);
+  const pool=useFruit?region.fruitFerments:region.vegFerments;
+  const seed=(snap.t/60000)%1; const choice=pool[Math.floor(seed*pool.length)%pool.length];
+  const eff=computeEffervescence(snap);
+  const abundant=(useFruit?fruit:veg)>0.6||waste>0.6; const tipo=useFruit?'fruta':'verdura';
+  let reason;
+  if(climateScore<0.35) reason=`En ${region.name} (${region.city}) el clima está frío/seco ahora: la fermentación de ${choice.product} irá lenta, ideal para arranques largos.`;
+  else if(abundant) reason=`Excedente alto de ${tipo} en ${region.name} y clima cálido/húmedo (${region.city}): aprovecha el pico para fermentar ${choice.product} y evitar desperdicio.`;
+  else reason=`En ${region.name} las condiciones reales de ${region.city} favorecen fermentar ${choice.product}.`;
+  if(eff.tension>0.5) reason+=' El sistema muestra tensión (desperdicio/precio): fermentar estabiliza el excedente.';
+  return {title:useFruit?'Fermentar fruta':'Fermentar verdura', product:choice.product, method:choice.method, reason, climateScore, region:region.name};
+}
+function renderInline(text,index,onOpen,keyBase){
+  const out=[]; let last=0,m,k=0; WIKI.lastIndex=0;
+  while((m=WIKI.exec(text))!==null){
+    if(m.index>last)out.push(text.slice(last,m.index));
+    const id=m[1].trim(); const vis=(m[2]||'').trim()||(index.get(id)?index.get(id).label:id); const known=index.has(id);
+    out.push(h('span',{key:keyBase+'w'+(k++),
+      className:known?'wikilink':'',
+      style:known?{borderColor:KIND_COLORS[index.get(id).kind],color:KIND_COLORS[index.get(id).kind]}:null,
+      onClick:known?()=>onOpen(id):null, title:known?'Ver en la red de nodos':null}, vis));
+    last=m.index+m[0].length;
+  }
+  if(last<text.length)out.push(text.slice(last));
+  return out;
+}
+function Blocks({blocks,index,onOpen,kb}){
+  return blocks.map((b,i)=>{
+    const key=kb+i;
+    if(b.kind==='h1')return h('h1',{key},b.text);
+    if(b.kind==='h2')return h('h2',{key},b.text);
+    if(b.kind==='h3')return h('h3',{key},b.text);
+    if(b.kind==='quote')return h('blockquote',{key},renderInline(b.text,index,onOpen,key));
+    if(b.kind==='image')return h('figure',{key},h('img',{src:b.src,alt:b.caption,loading:'lazy'}),b.caption&&h('figcaption',null,b.caption));
+    if(b.kind==='video')return h('figure',{key},h('video',{src:b.src,controls:true,preload:'metadata'}),b.caption&&h('figcaption',null,b.caption));
+    return h('p',{key},renderInline(b.text,index,onOpen,key));
+  });
+}
+function TOC({chapters,onJump,depth=0}){
+  return h('ul',null,chapters.map(c=>h('li',{key:c.id},
+    h('button',{onClick:()=>onJump(c.id)}, h('span',{className:'num'},c.number),' '+c.title),
+    c.children?h(TOC,{chapters:c.children,onJump,depth:depth+1}):null)));
+}
+function Reader({focusChapter,onOpen}){
+  const chapters=useMemo(()=>flatten(THESIS.chapters),[]);
+  const index=useMemo(()=>new Map(THESIS.entities.map(e=>[e.id,e])),[]);
+  const refs=useRef({});
+  useEffect(()=>{ if(focusChapter&&refs.current[focusChapter]) refs.current[focusChapter].scrollIntoView({behavior:'smooth',block:'start'}); },[focusChapter]);
+  return h('div',{className:'reader'},
+    h('nav',{className:'toc'}, h('div',{className:'lbl'},'Índice'), h(TOC,{chapters:THESIS.chapters,onJump:id=>refs.current[id]&&refs.current[id].scrollIntoView({behavior:'smooth'})})),
+    h('article',{className:'col'},
+      h('header',{className:'docheader'},
+        h('h1',null,THESIS.title),
+        THESIS.subtitle&&h('p',{className:'sub'},THESIS.subtitle),
+        h('p',{className:'auth'},THESIS.author)),
+      chapters.map(c=>h('section',{key:c.id,ref:el=>refs.current[c.id]=el,style:{marginBottom:40,scrollMarginTop:16}},
+        h(Blocks,{blocks:parseBody(c.body),index,onOpen,kb:c.id})))
+    ));
+}
+
+function GraphView({graph,activeKinds,selectedId,onSelect}){
+  const canvasRef=useRef(null),wrapRef=useRef(null),simRef=useRef(null),nodesRef=useRef([]),linksRef=useRef([]),rafRef=useRef(0),viewRef=useRef({scale:1,tx:0,ty:0}),hoverRef=useRef(null);
+  const [,force]=useState(0);
+  const filtered=useMemo(()=>{
+    const nodes=graph.nodes.filter(n=>activeKinds.has(n.kind)); const ids=new Set(nodes.map(n=>n.id));
+    const links=graph.links.filter(l=>ids.has(l.source)&&ids.has(l.target)); return {nodes,links};
+  },[graph,activeKinds]);
+  const baseR=n=>7+Math.sqrt(n.recurrence)*4;
+  useEffect(()=>{
+    const simNodes=filtered.nodes.map(n=>Object.assign({},n,{x:Math.random()*400-200,y:Math.random()*400-200,vx:0,vy:0}));
+    const byId=new Map(simNodes.map(n=>[n.id,n]));
+    const simLinks=filtered.links.map(l=>({source:byId.get(l.source),target:byId.get(l.target),weight:l.weight})).filter(l=>l.source&&l.target);
+    nodesRef.current=simNodes; linksRef.current=simLinks;
+    const sim=d3.forceSimulation(simNodes)
+      .force('charge',d3.forceManyBody().strength(-220))
+      .force('link',d3.forceLink(simLinks).id(d=>d.id).distance(l=>90/Math.sqrt(l.weight)).strength(0.6))
+      .force('center',d3.forceCenter(0,0))
+      .force('collide',d3.forceCollide().radius(d=>baseR(d)+10))
+      .alpha(1).alphaDecay(0.02);
+    simRef.current=sim; sim.on('tick',()=>force(x=>x+1));
+    return ()=>sim.stop();
+  },[filtered]);
+  useEffect(()=>{
+    const resize=()=>{const c=canvasRef.current,w=wrapRef.current; if(!c||!w)return; const dpr=window.devicePixelRatio||1;
+      c.width=w.clientWidth*dpr; c.height=w.clientHeight*dpr; const ctx=c.getContext('2d'); if(ctx)ctx.setTransform(dpr,0,0,dpr,0,0);};
+    resize(); window.addEventListener('resize',resize); return ()=>window.removeEventListener('resize',resize);
+  },[]);
+  useEffect(()=>{
+    const draw=()=>{
+      const c=canvasRef.current; if(!c){rafRef.current=requestAnimationFrame(draw);return;} const ctx=c.getContext('2d'); if(!ctx)return;
+      const w=c.clientWidth,hh=c.clientHeight; ctx.clearRect(0,0,w,hh);
+      const {scale,tx,ty}=viewRef.current; ctx.save(); ctx.translate(w/2+tx,hh/2+ty); ctx.scale(scale,scale);
+      ctx.lineWidth=1;
+      for(const l of linksRef.current){
+        const em=selectedId&&(l.source.id===selectedId||l.target.id===selectedId);
+        ctx.strokeStyle=em?'rgba(216,195,165,0.55)':'rgba(120,120,140,0.18)';
+        ctx.beginPath(); ctx.moveTo(l.source.x,l.source.y); ctx.lineTo(l.target.x,l.target.y); ctx.stroke();
+      }
+      for(const n of nodesRef.current){
+        const r=baseR(n), color=KIND_COLORS[n.kind], isSel=n.id===selectedId, isHover=n.id===hoverRef.current;
+        const dimmed=selectedId&&!isSel&&!linksRef.current.some(l=>(l.source.id===selectedId&&l.target.id===n.id)||(l.target.id===selectedId&&l.source.id===n.id));
+        ctx.globalAlpha=dimmed?0.25:1;
+        ctx.beginPath(); ctx.arc(n.x,n.y,r,0,Math.PI*2); ctx.closePath(); ctx.fillStyle=color; ctx.fill();
+        if(isSel||isHover){ctx.lineWidth=2;ctx.strokeStyle='#fff';ctx.stroke();}
+        if(scale>0.6||isSel||isHover||n.recurrence>1){ ctx.globalAlpha=dimmed?0.25:0.9; ctx.fillStyle='#d7d7de'; ctx.font='12px ui-monospace, monospace'; ctx.textAlign='center'; ctx.fillText(n.label,n.x,n.y+r+14); }
+        ctx.globalAlpha=1;
+      }
+      ctx.restore(); rafRef.current=requestAnimationFrame(draw);
+    };
+    rafRef.current=requestAnimationFrame(draw); return ()=>cancelAnimationFrame(rafRef.current);
+  },[selectedId]);
+  const s2w=(mx,my)=>{const c=canvasRef.current,{scale,tx,ty}=viewRef.current; return {x:(mx-c.clientWidth/2-tx)/scale,y:(my-c.clientHeight/2-ty)/scale};};
+  const nodeAt=(mx,my)=>{const {x,y}=s2w(mx,my); for(let i=nodesRef.current.length-1;i>=0;i--){const n=nodesRef.current[i],r=baseR(n)+6; if((n.x-x)**2+(n.y-y)**2<=r*r)return n;} return null;};
+  const drag=useRef({node:null,panning:false,lastX:0,lastY:0});
+  const down=e=>{const rect=canvasRef.current.getBoundingClientRect(),mx=e.clientX-rect.left,my=e.clientY-rect.top,n=nodeAt(mx,my);
+    if(n){drag.current={node:n,panning:false,lastX:mx,lastY:my};simRef.current&&simRef.current.alphaTarget(0.3).restart();n.fx=n.x;n.fy=n.y;}
+    else drag.current={node:null,panning:true,lastX:mx,lastY:my}; e.target.setPointerCapture(e.pointerId);};
+  const move=e=>{const rect=canvasRef.current.getBoundingClientRect(),mx=e.clientX-rect.left,my=e.clientY-rect.top,d=drag.current;
+    if(d.node){const {x,y}=s2w(mx,my);d.node.fx=x;d.node.fy=y;}
+    else if(d.panning){viewRef.current.tx+=mx-d.lastX;viewRef.current.ty+=my-d.lastY;d.lastX=mx;d.lastY=my;}
+    else {hoverRef.current=(nodeAt(mx,my)||{}).id||null; canvasRef.current.style.cursor=hoverRef.current?'pointer':'grab';}};
+  const up=e=>{const rect=canvasRef.current.getBoundingClientRect(),mx=e.clientX-rect.left,my=e.clientY-rect.top,d=drag.current;
+    if(d.node){const moved=Math.abs(mx-d.lastX)+Math.abs(my-d.lastY); if(moved<4)onSelect(d.node.id===selectedId?null:d.node.id); d.node.fx=null;d.node.fy=null;simRef.current&&simRef.current.alphaTarget(0);}
+    else if(d.panning){const moved=Math.abs(mx-d.lastX)+Math.abs(my-d.lastY); if(moved<4){const n=nodeAt(mx,my);onSelect(n?n.id:null);}}
+    drag.current={node:null,panning:false,lastX:0,lastY:0};};
+  const wheel=e=>{const f=e.deltaY<0?1.1:1/1.1; viewRef.current.scale=Math.min(4,Math.max(0.2,viewRef.current.scale*f));};
+  return h('div',{ref:wrapRef,className:'canvas-wrap'},
+    h('canvas',{ref:canvasRef,style:{touchAction:'none',cursor:'grab'},onPointerDown:down,onPointerMove:move,onPointerUp:up,onWheel:wheel}));
+}
+
+function NodePanel({graph,node,onSelect,onGoToChapter}){
+  if(!node) return h('div',{className:'pad muted',style:{fontSize:14}},
+    h('p',{className:'mono',style:{textTransform:'uppercase',fontSize:12,letterSpacing:'.06em'}},'Ficha'),
+    h('p',null,'Selecciona un nodo para ver su información, conexiones y apariciones.'));
+  const neigh=graph.links.filter(l=>l.source===node.id||l.target===node.id).map(l=>l.source===node.id?l.target:l.source);
+  const nn=graph.nodes.filter(n=>neigh.includes(n.id));
+  const chById=new Map(flatten(THESIS.chapters).map(c=>[c.id,c]));
+  return h('div',{className:'pad'},
+    h('div',{style:{display:'flex',alignItems:'center',gap:8}},
+      h('span',{style:{width:12,height:12,borderRadius:999,background:KIND_COLORS[node.kind],display:'inline-block'}}),
+      h('span',{className:'mono muted',style:{fontSize:12,textTransform:'uppercase',letterSpacing:'.06em'}},KIND_LABELS[node.kind])),
+    h('h2',{style:{marginTop:8,fontSize:20}},node.label),
+    node.summary&&h('p',{style:{marginTop:8,fontSize:14,lineHeight:1.5,color:'#cfcfd6'}},node.summary),
+    h('div',{style:{marginTop:16,display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}},
+      h('div',{className:'metric'},h('div',{className:'muted mono',style:{fontSize:12}},'Recurrencia'),h('div',{style:{fontSize:18}},node.recurrence)),
+      h('div',{className:'metric'},h('div',{className:'muted mono',style:{fontSize:12}},'Conexiones'),h('div',{style:{fontSize:18}},node.degree))),
+    node.liveKey&&h('p',{className:'mono',style:{marginTop:12,border:'1px solid #26262e',background:'#0a0a0c',borderRadius:6,padding:'8px 12px',fontSize:11,color:'#8a8a99'}},'Reacciona al dato en vivo: ',h('span',{className:'accent'},node.liveKey)),
+    nn.length>0&&h('section',{style:{marginTop:20}},
+      h('h3',{className:'mono muted',style:{fontSize:12,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:8}},'Conectado con'),
+      h('div',{style:{display:'flex',flexWrap:'wrap',gap:8}},nn.map(n=>h('button',{key:n.id,className:'pill',style:{borderColor:KIND_COLORS[n.kind]},onClick:()=>onSelect(n.id)},n.label)))),
+    node.chapters.length>0&&h('section',{style:{marginTop:20}},
+      h('h3',{className:'mono muted',style:{fontSize:12,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:8}},'Aparece en'),
+      h('ul',{style:{listStyle:'none',padding:0,margin:0}},node.chapters.map(cid=>{const c=chById.get(cid);return c?h('li',{key:cid},h('button',{style:{background:'none',border:0,color:'#7aa2f7',cursor:'pointer',fontFamily:'inherit',fontSize:14,padding:'2px 0',textAlign:'left'},onClick:()=>onGoToChapter(cid)},c.number+'. '+c.title)):null;})))
+  );
+}
+
+function ParticleField({liveRef}){
+  const canvasRef=useRef(null),wrapRef=useRef(null),partsRef=useRef([]),rafRef=useRef(0),spawnAcc=useRef(0);
+  useEffect(()=>{
+    const resize=()=>{const c=canvasRef.current,w=wrapRef.current; if(!c||!w)return; const dpr=window.devicePixelRatio||1;
+      c.width=w.clientWidth*dpr; c.height=w.clientHeight*dpr; const ctx=c.getContext('2d'); if(ctx)ctx.setTransform(dpr,0,0,dpr,0,0);};
+    resize(); window.addEventListener('resize',resize); return ()=>window.removeEventListener('resize',resize);
+  },[]);
+  useEffect(()=>{
+    let prev=performance.now();
+    const tick=now=>{
+      const dt=Math.min(50,now-prev)/1000; prev=now;
+      const c=canvasRef.current; if(!c){rafRef.current=requestAnimationFrame(tick);return;} const ctx=c.getContext('2d'); if(!ctx)return;
+      const w=c.clientWidth,hh=c.clientHeight;
+      const eff=computeEffervescence(liveRef.current); const energy=eff.energy;
+      const rate=8+energy*160+eff.burst*220; spawnAcc.current+=rate*dt; const toSpawn=Math.floor(spawnAcc.current); spawnAcc.current-=toSpawn;
+      for(let i=0;i<toSpawn&&partsRef.current.length<1400;i++){
+        partsRef.current.push({x:Math.random()*w,y:hh+6,vx:(Math.random()-0.5)*(14+energy*40),vy:-(20+Math.random()*40+energy*120),
+          r:1.2+Math.random()*(2.5+energy*4),life:0,maxLife:1.6+Math.random()*2.2,hue:40-eff.tension*60+(Math.random()-0.5)*20});
+      }
+      ctx.globalCompositeOperation='source-over'; ctx.fillStyle='rgba(10,10,12,0.22)'; ctx.fillRect(0,0,w,hh);
+      ctx.globalCompositeOperation='lighter';
+      const turb=10+energy*90; const ps=partsRef.current;
+      for(let i=ps.length-1;i>=0;i--){const p=ps[i]; p.life+=dt; if(p.life>=p.maxLife||p.y<-10){ps.splice(i,1);continue;}
+        p.vx+=Math.sin(now*0.004+p.y*0.05)*turb*dt; p.vy-=energy*30*dt; p.x+=p.vx*dt; p.y+=p.vy*dt;
+        if(p.x<0)p.x+=w; if(p.x>w)p.x-=w;
+        const k=1-p.life/p.maxLife, alpha=0.12+k*0.55, sat=70+eff.tension*25, light=55+energy*15;
+        ctx.beginPath(); ctx.fillStyle=`hsla(${p.hue},${sat}%,${light}%,${alpha})`; ctx.arc(p.x,p.y,p.r*(0.6+k),0,Math.PI*2); ctx.fill();}
+      ctx.globalCompositeOperation='source-over';
+      rafRef.current=requestAnimationFrame(tick);
+    };
+    rafRef.current=requestAnimationFrame(tick); return ()=>cancelAnimationFrame(rafRef.current);
+  },[]);
+  return h('div',{ref:wrapRef,className:'canvas-wrap'},h('canvas',{ref:canvasRef}));
+}
+
+function LivePanel({snapshot,regionId}){
+  if(!snapshot) return h('div',{className:'pad muted',style:{fontSize:14}},h('p',{className:'mono',style:{textTransform:'uppercase',fontSize:12}},'Datos en vivo'),h('p',null,'Conectando con la fuente…'));
+  const rec=recommend(snapshot,regionId);
+  return h('div',{className:'pad'},
+    h('p',{className:'mono muted',style:{fontSize:12,textTransform:'uppercase',letterSpacing:'.06em'}},'Fuente'),
+    h('h2',{style:{marginTop:4,fontSize:18}},snapshot.sourceLabel),
+    h('p',{className:'mono muted',style:{marginTop:4,fontSize:11}},'Última lectura: '+new Date(snapshot.t).toLocaleTimeString()),
+    rec&&h('div',{className:'rec-box',style:{marginTop:16}},
+      h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center'}},
+        h('span',{className:'mono accent',style:{fontSize:10,textTransform:'uppercase',letterSpacing:'.06em'}},'Recomendación'),
+        h('span',{className:'mono muted',style:{fontSize:10}},'clima '+Math.round(rec.climateScore*100)+'%')),
+      h('p',{style:{marginTop:4,fontSize:14,fontWeight:600,color:'#f0e6d6'}},rec.title+': ',h('span',{className:'accent'},rec.product)),
+      h('p',{className:'mono muted',style:{marginTop:2,fontSize:11}},'técnica: '+rec.method),
+      h('p',{style:{marginTop:8,fontSize:12,lineHeight:1.5,color:'#cfcfd6'}},rec.reason)),
+    h('div',{style:{marginTop:20,display:'flex',flexDirection:'column',gap:16}},
+      Object.entries(snapshot.raw).map(([key,r])=>{const norm=snapshot.values[key]||0; return h('div',{key},
+        h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'baseline'}},
+          h('span',{style:{fontSize:14,color:'#dedee4'}},r.label),
+          h('span',{className:'mono accent',style:{fontSize:14}},r.value.toLocaleString()+' ',h('span',{className:'muted'},r.unit))),
+        h('div',{className:'bar-track',style:{marginTop:4}},h('div',{className:'bar-fill',style:{width:Math.round(norm*100)+'%'}})),
+        h('div',{className:'mono muted',style:{marginTop:2,fontSize:10}},'clave: '+key+' · intensidad '+Math.round(norm*100)+'%'));})),
+    h('p',{className:'mono muted',style:{marginTop:24,border:'1px solid #26262e',background:'#0a0a0c',borderRadius:6,padding:'8px 12px',fontSize:12,lineHeight:1.5}},
+      'La temperatura y la humedad son reales (Open-Meteo) según la región. El resto de variables alimentarias son una simulación de demostración. La efervescencia de las partículas sube con cosecha/producción, con más fruta que verdura y con calor+humedad; baja con frío+sequedad; y estalla en los cruces de tensión.')
+  );
+}
+
+function App(){
+  const [tab,setTab]=useState('lectura');
+  const [selectedId,setSelectedId]=useState(null);
+  const [focusChapter,setFocusChapter]=useState(null);
+  const [activeKinds,setActiveKinds]=useState(new Set(ALL_KINDS));
+  const [regionId,setRegionId]=useState(DEFAULT_REGION);
+  const graph=useMemo(()=>buildGraph(THESIS),[]);
+  const {snapshot,latest}=useLiveData(regionId);
+  const selectedNode=graph.nodes.find(n=>n.id===selectedId)||null;
+  const openInGraph=id=>{setSelectedId(id);setTab('red');};
+  const toggleKind=k=>setActiveKinds(prev=>{const n=new Set(prev); n.has(k)?n.delete(k):n.add(k); return n;});
+
+  return h('div',{className:'app'},
+    h('header',{className:'bar'},
+      h('div',null,h('span',{className:'title'},THESIS.title),h('span',{className:'author'},THESIS.author)),
+      h('nav',{className:'tabs'},[['lectura','Lectura'],['red','Red'],['vivo','Datos en vivo']].map(([id,label])=>
+        h('button',{key:id,className:tab===id?'active':'',onClick:()=>setTab(id)},label)))),
+    h('main',null,
+      tab==='lectura'&&h(Reader,{focusChapter,onOpen:openInGraph}),
+      tab==='red'&&h('div',{className:'split'},
+        h('div',{style:{position:'relative',minWidth:0,flex:1}},
+          h('div',{className:'chip-row'},ALL_KINDS.map(k=>{const on=activeKinds.has(k);return h('button',{key:k,className:'chip',
+            style:{borderColor:KIND_COLORS[k],color:on?'#0a0a0c':KIND_COLORS[k],background:on?KIND_COLORS[k]:'transparent',opacity:on?1:0.6},
+            onClick:()=>toggleKind(k)},KIND_LABELS[k]);})),
+          h(GraphView,{graph,activeKinds,selectedId,onSelect:setSelectedId}),
+          h('p',{className:'hint'},'Red pura · tamaño = recurrencia · arrastra, zoom con rueda')),
+        h('aside',{className:'panel'},h(NodePanel,{graph,node:selectedNode,onSelect:setSelectedId,onGoToChapter:cid=>{setFocusChapter(cid);setTab('lectura');}}))),
+      tab==='vivo'&&h('div',{className:'split'},
+        h('div',{style:{position:'relative',minWidth:0,flex:1}},
+          h('div',{className:'chip-row'},
+            h('span',{className:'mono muted',style:{fontSize:11,textTransform:'uppercase',letterSpacing:'.06em'}},'Región'),
+            h('select',{value:regionId,onChange:e=>setRegionId(e.target.value)},REGIONS.map(r=>h('option',{key:r.id,value:r.id},r.name+' · '+r.city)))),
+          h(ParticleField,{liveRef:latest}),
+          h('p',{className:'hint'},'Partículas efervescentes · clima real de Colombia · burbujean con los cruces de datos')),
+        h('aside',{className:'panel'},h(LivePanel,{snapshot,regionId})))
+    ));
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(h(App));
+</script>
+</body>
+</html>
