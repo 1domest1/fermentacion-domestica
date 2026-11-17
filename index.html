@@ -77,6 +77,7 @@
     backdrop-filter: blur(3px); pointer-events: none; max-width: 70%; }
   .bubble-tag-food { font-size: 16px; font-weight: 600; color: #f0e6d6; text-transform: capitalize; }
   .bubble-tag-sub { margin-top: 2px; font-family: ui-monospace, monospace; font-size: 11px; color: #cfcfd6; }
+  .bubble-tag-climate { margin-top: 6px; padding-top: 6px; border-top: 1px solid #26262e; font-size: 11px; line-height: 1.45; }
   /* Hilo tenue etiqueta -> masa */
   .flow-thread { position: absolute; top: 82px; left: 50%; transform: translateX(-50%); width: 2px; height: 90px; z-index: 5;
     opacity: .5; pointer-events: none; }
@@ -517,6 +518,19 @@ function computeEffervescence(snap){
   _prevTension=tension; _lastT=now;
   return {energy,tension,burst:_burst,socialPressure};
 }
+// Consejo climático según la TEMPERATURA REAL de Bogotá (°C, Open-Meteo).
+// Cuatro franjas entre frío y cálido, con orientación para la fermentación.
+function climateAdvice(tempC){
+  if(tempC==null) return null;
+  if(tempC>=19) return { tier:'cálido', color:'#e0af68',
+    text:`El clima en Bogotá hoy ha sido cálido (${Math.round(tempC)} °C): revisa la efervescencia de tus fermentos, pueden acelerarse.` };
+  if(tempC>=14) return { tier:'templado', color:'#9ece6a',
+    text:`Clima templado en Bogotá (${Math.round(tempC)} °C): tus fermentos avanzan a buen ritmo, mantén la observación.` };
+  if(tempC>=10) return { tier:'fresco', color:'#7aa2f7',
+    text:`Clima fresco en Bogotá (${Math.round(tempC)} °C): la fermentación va más lenta, dales tiempo.` };
+  return { tier:'frío', color:'#2ac3de',
+    text:`El clima en Bogotá ha sido frío (${Math.round(tempC)} °C): tus fermentos pueden necesitar más alimento o calor para seguir activos.` };
+}
 // Color (hue) de las partículas según el TIPO de fermentación recomendado.
 const TYPE_HUE = { alcoholica:270, lactica:95, acetica:40, propionica:215, butirica:345 };
 // PALETA POR VARIABLE (parte B): cada grupo de burbujas = una variable de datos.
@@ -878,7 +892,9 @@ function ParticleField({liveRef,snapshot,localityId}){
     // Etiqueta de la burbuja dominante: alimento + tipo de fermentación.
     rec && h('div',{className:'bubble-tag', style:typeInfo?{borderColor:typeInfo.color}:null},
       h('div',{className:'bubble-tag-food'},'🫙 '+rec.product),
-      h('div',{className:'bubble-tag-sub'}, rec.method + (typeInfo?(' · '+typeInfo.label):''))),
+      h('div',{className:'bubble-tag-sub'}, rec.method + (typeInfo?(' · '+typeInfo.label):'')),
+      (()=>{ const adv=climateAdvice(snapshot&&snapshot.raw&&snapshot.raw.temperature?snapshot.raw.temperature.value:null);
+        return adv ? h('div',{className:'bubble-tag-climate',style:{color:adv.color}}, '🌡️ '+adv.text) : null; })()),
     // Hilo tenue que conecta la etiqueta con la masa superior de burbujas.
     rec && h('div',{className:'flow-thread', style:typeInfo?{background:`linear-gradient(to top, transparent, ${typeInfo.color})`}:null})
   );
