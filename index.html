@@ -64,6 +64,22 @@
   .chip-row { position: absolute; left: 12px; top: 12px; z-index: 10; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
   .chip { border: 1px solid; border-radius: 999px; padding: 4px 10px; font-size: 11px; cursor: pointer; font-family: ui-monospace, monospace; background: transparent; }
   .hint { position: absolute; bottom: 12px; left: 12px; font-family: ui-monospace, monospace; font-size: 11px; color: #8a8a99; pointer-events: none; }
+  /* Leyenda de variables (parte B) */
+  .legend { position: absolute; left: 12px; bottom: 34px; z-index: 6; display: flex; flex-direction: column; gap: 3px;
+    background: rgba(10,10,12,.55); border: 1px solid #26262e; border-radius: 8px; padding: 8px 10px; backdrop-filter: blur(3px); }
+  .legend-row { display: flex; align-items: center; gap: 7px; font-family: ui-monospace, monospace; font-size: 11px; color: #cfcfd6; }
+  .legend-dot { width: 9px; height: 9px; border-radius: 999px; display: inline-block; flex-shrink: 0; }
+  .legend-lbl { min-width: 78px; }
+  .legend-pct { color: #8a8a99; }
+  /* Etiqueta de la burbuja dominante (parte C) */
+  .bubble-tag { position: absolute; top: 48px; left: 50%; transform: translateX(-50%); z-index: 7;
+    background: rgba(10,10,12,.6); border: 1px solid #d8c3a5; border-radius: 10px; padding: 8px 14px; text-align: center;
+    backdrop-filter: blur(3px); pointer-events: none; max-width: 70%; }
+  .bubble-tag-food { font-size: 16px; font-weight: 600; color: #f0e6d6; text-transform: capitalize; }
+  .bubble-tag-sub { margin-top: 2px; font-family: ui-monospace, monospace; font-size: 11px; color: #cfcfd6; }
+  /* Hilo tenue etiqueta -> masa */
+  .flow-thread { position: absolute; top: 82px; left: 50%; transform: translateX(-50%); width: 2px; height: 90px; z-index: 5;
+    opacity: .5; pointer-events: none; }
   select { border: 1px solid #26262e; background: #121216; color: #e7e7ea; border-radius: 6px; padding: 4px 8px; font-family: ui-monospace, monospace; font-size: 12px; }
   .muted { color: #8a8a99; }
   .accent { color: #d8c3a5; }
@@ -503,6 +519,23 @@ function computeEffervescence(snap){
 }
 // Color (hue) de las partículas según el TIPO de fermentación recomendado.
 const TYPE_HUE = { alcoholica:270, lactica:95, acetica:40, propionica:215, butirica:345 };
+// PALETA POR VARIABLE (parte B): cada grupo de burbujas = una variable de datos.
+// La proporción de burbujas de cada color refleja el valor de su barra.
+const VAR_COLORS = [
+  { key:'harvest',    label:'Cosecha',     hue:170 },  // verde azulado
+  { key:'waste',      label:'Desperdicio', hue:350 },  // rojo/magenta
+  { key:'production', label:'Producción',  hue:210 },  // azul
+  { key:'fruit',      label:'Fruta',       hue:280 },  // violeta
+  { key:'veg',        label:'Verdura',     hue:110 },  // verde
+];
+// Elige una variable al azar con probabilidad proporcional a su valor actual,
+// de modo que el campo "dibuje" la proporción de los datos del panel.
+function pickVarByWeight(values){
+  let total=0; const weights=VAR_COLORS.map(vc=>{ const w=Math.max(0.02,(values&&values[vc.key])||0); total+=w; return w; });
+  let r=Math.random()*total;
+  for(let i=0;i<VAR_COLORS.length;i++){ r-=weights[i]; if(r<=0) return VAR_COLORS[i]; }
+  return VAR_COLORS[0];
+}
 function recommendedTypeHue(snap){
   if(!snap||!snap.localityId) return null;
   try{ const r=recommend(snap, snap.localityId); return r&&r.type?TYPE_HUE[r.type]:null; }catch(e){ return null; }
@@ -713,7 +746,7 @@ function NodePanel({graph,node,onSelect,onGoToChapter}){
   );
 }
 
-function ParticleField({liveRef}){
+function ParticleField({liveRef,snapshot,localityId}){
   const canvasRef=useRef(null),wrapRef=useRef(null),partsRef=useRef([]),rafRef=useRef(0),spawnAcc=useRef(0),collapseRef=useRef(0);
   useEffect(()=>{
     const resize=()=>{const c=canvasRef.current,w=wrapRef.current; if(!c||!w)return; const dpr=window.devicePixelRatio||1;
@@ -727,30 +760,35 @@ function ParticleField({liveRef}){
       const c=canvasRef.current; if(!c){rafRef.current=requestAnimationFrame(tick);return;} const ctx=c.getContext('2d'); if(!ctx)return;
       const w=c.clientWidth,hh=c.clientHeight;
       const eff=computeEffervescence(liveRef.current); const energy=eff.energy;
-      // Color según el TIPO de fermentación recomendado (varía al cambiar de
-      // región / datos). Si no hay, cae al tono por tensión.
-      const typeHue=recommendedTypeHue(liveRef.current);
-      const coreHue=typeHue!=null?typeHue:(40-eff.tension*60);
+      const vals=(liveRef.current&&liveRef.current.values)||{};
       // Tamaño de vivienda: casas grandes -> burbujas algo mayores (más "espacio").
-      const homeV=(liveRef.current&&liveRef.current.values&&liveRef.current.values.homeSize!=null)?liveRef.current.values.homeSize:0.5;
+      const homeV=vals.homeSize!=null?vals.homeSize:0.5;
       const sizeMul=0.8+homeV*0.6;
 
-      // NACIMIENTO: muchas partículas que aparecen en el borde inferior y suben
-      // despacio, de modo que SIEMPRE hay flujo visible en toda la columna.
+      // NACIMIENTO (parte B): cada burbuja adopta el color de UNA variable,
+      // elegida con probabilidad proporcional al valor de su barra -> el campo
+      // dibuja la proporción de los datos del panel.
       const rate=90+energy*320+eff.burst*300; spawnAcc.current+=rate*dt; const toSpawn=Math.floor(spawnAcc.current); spawnAcc.current-=toSpawn;
       for(let i=0;i<toSpawn&&partsRef.current.length<5000;i++){
+        const vc=pickVarByWeight(vals);
         partsRef.current.push({
           x:Math.random()*w, y:hh+6,
           vx:(Math.random()-0.5)*(8+energy*22),
           vy:-(28+Math.random()*34+energy*70),   // ascenso más lento => se ve el recorrido completo
           r:(1.1+Math.random()*(2.0+energy*2.6))*sizeMul,
           life:0, maxLife:9+Math.random()*5,      // viven mucho: cruzan toda la pantalla
-          hue:coreHue+(Math.random()-0.5)*24
+          hue:vc.hue+(Math.random()-0.5)*16,
+          varKey:vc.key
         });
       }
 
       // Limpieza del fondo en negro cada frame (sin estela: flujo nítido).
       ctx.globalCompositeOperation='source-over'; ctx.fillStyle='#0a0a0c'; ctx.fillRect(0,0,w,hh);
+
+      // La MASA que cuaja arriba toma el color del TIPO de fermentación
+      // recomendado (la "síntesis" de las variables en una propuesta).
+      const typeHue=recommendedTypeHue(liveRef.current);
+      const coreHue=typeHue!=null?typeHue:(40-eff.tension*60);
 
       const ps=partsRef.current;
       // CONTEO de acumulación en el tercio superior -> "saturación" de la masa.
@@ -815,7 +853,35 @@ function ParticleField({liveRef}){
     };
     rafRef.current=requestAnimationFrame(tick); return ()=>cancelAnimationFrame(rafRef.current);
   },[]);
-  return h('div',{ref:wrapRef,className:'canvas-wrap'},h('canvas',{ref:canvasRef}));
+
+  // --- OVERLAY (parte C): leyenda de variables + etiqueta de burbuja dominante
+  // con el alimento y tipo de fermentación + hilo tenue hacia la masa. ---
+  const rec = snapshot ? recommend(snapshot, localityId) : null;
+  const vals = (snapshot && snapshot.values) || {};
+  // variable dominante (la barra con mayor valor): se resalta en la leyenda.
+  let domVar=VAR_COLORS[0], domVal=-1;
+  for(const vc of VAR_COLORS){ const v=vals[vc.key]||0; if(v>domVal){domVal=v; domVar=vc;} }
+  const typeInfo = rec && FERMENT_TYPES[rec.type] ? FERMENT_TYPES[rec.type] : null;
+
+  return h('div',{ref:wrapRef,className:'canvas-wrap'},
+    h('canvas',{ref:canvasRef}),
+    // Leyenda de colores por variable (abajo-izquierda), con % y resaltado del dominante.
+    h('div',{className:'legend'},
+      VAR_COLORS.map(vc=>{
+        const pct=Math.round((vals[vc.key]||0)*100);
+        const isDom=vc.key===domVar.key;
+        return h('div',{key:vc.key,className:'legend-row',style:{opacity:isDom?1:0.7}},
+          h('span',{className:'legend-dot',style:{background:`hsl(${vc.hue},70%,60%)`,boxShadow:isDom?`0 0 6px hsl(${vc.hue},80%,60%)`:'none'}}),
+          h('span',{className:'legend-lbl',style:{fontWeight:isDom?700:400}},vc.label),
+          h('span',{className:'legend-pct'},pct+'%'));
+      })),
+    // Etiqueta de la burbuja dominante: alimento + tipo de fermentación.
+    rec && h('div',{className:'bubble-tag', style:typeInfo?{borderColor:typeInfo.color}:null},
+      h('div',{className:'bubble-tag-food'},'🫙 '+rec.product),
+      h('div',{className:'bubble-tag-sub'}, rec.method + (typeInfo?(' · '+typeInfo.label):''))),
+    // Hilo tenue que conecta la etiqueta con la masa superior de burbujas.
+    rec && h('div',{className:'flow-thread', style:typeInfo?{background:`linear-gradient(to top, transparent, ${typeInfo.color})`}:null})
+  );
 }
 
 function LivePanel({snapshot,localityId}){
@@ -920,7 +986,7 @@ function App(){
           h('div',{className:'chip-row'},
             h('span',{className:'mono muted',style:{fontSize:11,textTransform:'uppercase',letterSpacing:'.06em'}},'Localidad'),
             h('select',{value:localityId,onChange:e=>setLocalityId(e.target.value)},LOCALITIES.map(l=>h('option',{key:l.id,value:l.id},l.name)))),
-          h(ParticleField,{liveRef:latest}),
+          h(ParticleField,{liveRef:latest,snapshot,localityId}),
           h('p',{className:'hint'},'Partículas efervescentes · clima real de Bogotá · burbujean con los cruces de datos')),
         h('aside',{className:'panel'},h(LivePanel,{snapshot,localityId})))
     ));
