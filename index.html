@@ -77,7 +77,10 @@
     backdrop-filter: blur(3px); pointer-events: none; max-width: 70%; }
   .bubble-tag-food { font-size: 16px; font-weight: 600; color: #f0e6d6; text-transform: capitalize; }
   .bubble-tag-sub { margin-top: 2px; font-family: ui-monospace, monospace; font-size: 11px; color: #cfcfd6; }
-  .bubble-tag-climate { margin-top: 6px; padding-top: 6px; border-top: 1px solid #26262e; font-size: 11px; line-height: 1.45; }
+  .bubble-tag-climate { margin-top: 6px; padding-top: 6px; border-top: 1px solid #26262e; font-size: 11px; line-height: 1.45; color: #cfcfd6; }
+  .hum-head { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
+  .hum-badge { font-family: ui-monospace, monospace; font-size: 10px; border: 1px solid; border-radius: 999px; padding: 1px 8px; }
+  .hum-body { margin-top: 3px; color: #cfcfd6; }
   /* Hilo tenue etiqueta -> masa */
   .flow-thread { position: absolute; top: 82px; left: 50%; transform: translateX(-50%); width: 2px; height: 90px; z-index: 5;
     opacity: .5; pointer-events: none; }
@@ -531,6 +534,31 @@ function climateAdvice(tempC){
   return { tier:'frío', color:'#2ac3de',
     text:`El clima en Bogotá ha sido frío (${Math.round(tempC)} °C): tus fermentos pueden necesitar más alimento o calor para seguir activos.` };
 }
+// Consejo según la HUMEDAD RELATIVA real de Bogotá (%, Open-Meteo).
+// Escala de adecuación para fermentación (panadería/masa madre), 5 niveles.
+// Devuelve nivel (escala), efecto y recomendación por separado.
+function humidityAdvice(hum){
+  if(hum==null) return null;
+  const h=Math.round(hum);
+  if(h>90) return { level:'Inadecuada (extrema)', color:'#f7768e', pct:h,
+    effect:'Por encima del 90% hay condensación y riesgo de mohos.',
+    tip:'Revisa la ventilación y abre las tapas un momento para liberar vapor; evita procesos totalmente cerrados.' };
+  if(h<55) return { level:'Inadecuada (extrema)', color:'#f7768e', pct:h,
+    effect:'Por debajo del 55% se forma una costra dura que frena el crecimiento.',
+    tip:'Cuida las tapas y mantenlas bien cerradas; cubre con paños húmedos para que el fermento no se reseque.' };
+  if(h>=85) return { level:'Aceptable (alta)', color:'#e0af68', pct:h,
+    effect:'Acelera la transferencia de calor pero puede ablandar la superficie.',
+    tip:'Vigila la pegajosidad y revisa la ventilación para que no se acumule exceso de vapor bajo la tapa.' };
+  if(h>=75) return { level:'Óptima (ideal)', color:'#9ece6a', pct:h,
+    effect:'Mantiene la superficie elástica sin resecar el fermento.',
+    tip:'Rango ideal: mantén las tapas como están y una ventilación suave y estable.' };
+  if(h>=70) return { level:'Muy adecuada', color:'#9ece6a', pct:h,
+    effect:'Buen desarrollo con mínimo riesgo de resequedad.',
+    tip:'Condiciones favorables; cuida las tapas y conserva una ventilación ligera.' };
+  return { level:'Poco adecuada (baja)', color:'#e0af68', pct:h,
+    effect:'Hay pérdida de agua superficial y empieza una película seca.',
+    tip:'Cuida las tapas y ciérralas bien; cubre el fermento con paños húmedos y reduce la ventilación para no resecarlo.' };
+}
 // Color (hue) de las partículas según el TIPO de fermentación recomendado.
 const TYPE_HUE = { alcoholica:270, lactica:95, acetica:40, propionica:215, butirica:345 };
 // PALETA POR VARIABLE (parte B): cada grupo de burbujas = una variable de datos.
@@ -871,7 +899,13 @@ function ParticleField({liveRef,snapshot,localityId}){
       h('div',{className:'bubble-tag-food'},'🫙 '+rec.product),
       h('div',{className:'bubble-tag-sub'}, rec.method + (typeInfo?(' · '+typeInfo.label):'')),
       (()=>{ const adv=climateAdvice(snapshot&&snapshot.raw&&snapshot.raw.temperature?snapshot.raw.temperature.value:null);
-        return adv ? h('div',{className:'bubble-tag-climate',style:{color:adv.color}}, '🌡️ '+adv.text) : null; })()),
+        return adv ? h('div',{className:'bubble-tag-climate',style:{color:adv.color}}, '🌡️ '+adv.text) : null; })(),
+      (()=>{ const adv=humidityAdvice(snapshot&&snapshot.raw&&snapshot.raw.humidity?snapshot.raw.humidity.value:null);
+        return adv ? h('div',{className:'bubble-tag-climate'},
+          h('div',{className:'hum-head'},
+            h('span',null,'💧 Humedad ',h('b',null,adv.pct+'%')),
+            h('span',{className:'hum-badge',style:{borderColor:adv.color,color:adv.color}},adv.level)),
+          h('div',{className:'hum-body'}, adv.effect+' '+adv.tip)) : null; })()),
     // Hilo tenue que conecta la etiqueta con la masa superior de burbujas.
     rec && h('div',{className:'flow-thread', style:typeInfo?{background:`linear-gradient(to top, transparent, ${typeInfo.color})`}:null})
   );
