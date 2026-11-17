@@ -799,38 +799,15 @@ function ParticleField({liveRef,snapshot,localityId}){
       // Limpieza del fondo en negro cada frame (sin estela: flujo nítido).
       ctx.globalCompositeOperation='source-over'; ctx.fillStyle='#0a0a0c'; ctx.fillRect(0,0,w,hh);
 
-      // La MASA que cuaja arriba toma el color del TIPO de fermentación
-      // recomendado (la "síntesis" de las variables en una propuesta).
-      const typeHue=recommendedTypeHue(liveRef.current);
-      const coreHue=typeHue!=null?typeHue:(40-eff.tension*60);
-
       const ps=partsRef.current;
       // CONTEO de acumulación en el tercio superior -> "saturación" de la masa.
-      // Cuando hay muchas partículas arriba, la banda COLAPSA en una capa casi
-      // sólida (opaca y compacta) en el margen superior.
+      // Se conserva como mecánica (el "techo" absorbe partículas al colapsar),
+      // pero YA NO se pinta banda de color: el fondo queda de un solo color.
       let topCount=0; const topZone=hh*0.33;
       for(let i=0;i<ps.length;i++){ if(ps[i].y<topZone) topCount++; }
-      // saturación 0..1: cuántas de las ~800 posibles en la zona alta hay ya.
       const saturation=Math.min(1, topCount/800);
-      // la masa colapsada vive en un ref para suavizar (no saltar de golpe).
       collapseRef.current += (saturation - collapseRef.current) * Math.min(1, dt*2.5);
       const collapse=collapseRef.current;
-
-      // ACUMULACIÓN SÓLIDA ARRIBA: altura por energía, pero la OPACIDAD y la
-      // compactación crecen con el colapso -> casi una masa completa al saturar.
-      const fillH=hh*(0.10+energy*0.42+collapse*0.12);
-      const grad=ctx.createLinearGradient(0,0,0,fillH);
-      const light=56+energy*14-collapse*10, sat=68+eff.tension*26, baseHue=coreHue;
-      const topAlpha=Math.min(1, 0.55+energy*0.2+collapse*0.5); // -> ~1 (opaco) al colapsar
-      grad.addColorStop(0, `hsla(${baseHue},${sat}%,${light}%,${topAlpha})`);
-      grad.addColorStop(Math.min(0.95, 0.4+collapse*0.5), `hsla(${baseHue},${sat}%,${light}%,${topAlpha*0.6})`);
-      grad.addColorStop(1, `hsla(${baseHue},${sat}%,${light}%,0)`);
-      ctx.fillStyle=grad; ctx.fillRect(0,0,w,fillH);
-      // Capa compacta superior: una franja casi sólida que aparece al colapsar.
-      if(collapse>0.15){
-        ctx.fillStyle=`hsla(${baseHue},${sat}%,${light}%,${Math.min(0.95,collapse)})`;
-        ctx.fillRect(0,0,w,hh*0.06*collapse+2);
-      }
 
       ctx.globalCompositeOperation='lighter';
       const turb=10+energy*80;
