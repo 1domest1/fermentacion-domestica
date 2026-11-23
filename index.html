@@ -1044,6 +1044,16 @@ function App(){
   const [activeKinds,setActiveKinds]=useState(new Set(ALL_KINDS));
   const [localityId,setLocalityId]=useState(DEFAULT_LOCALITY);
   const [aboutOpen,setAboutOpen]=useState(false);
+  // Letrero "Sobre la obra" automático: se abre cada 5 min y dura 1 min visible,
+  // para que el espectador entienda el funcionamiento sin pulsar el botón.
+  useEffect(()=>{
+    let hideTimer=null;
+    const cycle=setInterval(()=>{
+      setAboutOpen(true);
+      hideTimer=setTimeout(()=>setAboutOpen(false),60000); // visible 1 minuto
+    },300000); // cada 5 minutos
+    return ()=>{ clearInterval(cycle); if(hideTimer)clearTimeout(hideTimer); };
+  },[]);
   const graph=useMemo(()=>buildGraph(THESIS),[]);
   const {snapshot,latest}=useLiveData(localityId);
   const selectedNode=graph.nodes.find(n=>n.id===selectedId)||null;
