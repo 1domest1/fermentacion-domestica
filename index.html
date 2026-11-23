@@ -84,6 +84,14 @@
   /* Hilo tenue etiqueta -> masa */
   .flow-thread { position: absolute; top: 82px; left: 50%; transform: translateX(-50%); width: 2px; height: 90px; z-index: 5;
     opacity: .5; pointer-events: none; }
+  /* Manifiesto central (frases de la tesis) */
+  .manifesto { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    z-index: 8; width: min(80%, 620px); text-align: center; pointer-events: none;
+    font-family: Georgia, 'Times New Roman', serif; line-height: 1.3;
+    opacity: 0; transition: opacity 1.1s ease; text-shadow: 0 2px 18px rgba(0,0,0,.7); }
+  .manifesto.on { opacity: 1; }
+  .manifesto-fixed { display: block; font-size: 15px; letter-spacing: .14em; font-weight: 700; text-transform: uppercase; opacity: .85; margin-bottom: 8px; }
+  .manifesto-phrase { display: block; font-size: 30px; font-weight: 600; font-style: italic; }
   select { border: 1px solid #26262e; background: #121216; color: #e7e7ea; border-radius: 6px; padding: 4px 8px; font-family: ui-monospace, monospace; font-size: 12px; }
   .muted { color: #8a8a99; }
   .accent { color: #d8c3a5; }
@@ -559,6 +567,19 @@ function humidityAdvice(hum){
     effect:'Hay pérdida de agua superficial y empieza una película seca.',
     tip:'Cuida las tapas y ciérralas bien; cubre el fermento con paños húmedos y reduce la ventilación para no resecarlo.' };
 }
+// MANIFIESTO — frases de la tesis (propiedad exclusiva de la autora).
+// Estructura fija "LA FERMENTACIÓN ES:" + frase. Rotan en orden aleatorio.
+const MANIFESTO = [
+  'Contacto de cuerpos.',
+  'Cruce y contaminación. Por eso siempre es territorio, cruce y migración.',
+  'Práctica situada de atmósferas compartidas.',
+  'Detenerse al encuentro de una potencia que aparece en el tiempo suspendido.',
+  'Es comer el cuerpo vivo de otros cuerpos vivos.',
+  'Fuerza sonora, susurro intenpestivo.',
+  'Materia mutante.',
+  'Estética de la degradación, identidad subvertida.',
+  'Materia conjunta.',
+];
 // Color (hue) de las partículas según el TIPO de fermentación recomendado.
 const TYPE_HUE = { alcoholica:270, lactica:95, acetica:40, propionica:215, butirica:345 };
 // PALETA POR VARIABLE (parte B): cada grupo de burbujas = una variable de datos.
@@ -790,6 +811,20 @@ function NodePanel({graph,node,onSelect,onGoToChapter}){
 
 function ParticleField({liveRef,snapshot,localityId}){
   const canvasRef=useRef(null),wrapRef=useRef(null),partsRef=useRef([]),rafRef=useRef(0),spawnAcc=useRef(0),collapseRef=useRef(0);
+  // MANIFIESTO: índice de la frase actual + visibilidad (para el fundido).
+  const [phraseIdx,setPhraseIdx]=useState(()=>Math.floor(Math.random()*MANIFESTO.length));
+  const [phraseVisible,setPhraseVisible]=useState(true);
+  useEffect(()=>{
+    // cada 30 s: fundir fuera, elegir otra frase aleatoria (distinta), fundir dentro.
+    const id=setInterval(()=>{
+      setPhraseVisible(false);
+      setTimeout(()=>{
+        setPhraseIdx(prev=>{ if(MANIFESTO.length<2) return prev; let n=prev; while(n===prev) n=Math.floor(Math.random()*MANIFESTO.length); return n; });
+        setPhraseVisible(true);
+      },1200); // dura el fundido de salida
+    },30000);
+    return ()=>clearInterval(id);
+  },[]);
   useEffect(()=>{
     const resize=()=>{const c=canvasRef.current,w=wrapRef.current; if(!c||!w)return; const dpr=window.devicePixelRatio||1;
       c.width=w.clientWidth*dpr; c.height=w.clientHeight*dpr; const ctx=c.getContext('2d'); if(ctx)ctx.setTransform(dpr,0,0,dpr,0,0);};
@@ -882,8 +917,13 @@ function ParticleField({liveRef,snapshot,localityId}){
   for(const vc of VAR_COLORS){ const v=vals[vc.key]||0; if(v>domVal){domVal=v; domVar=vc;} }
   const typeInfo = rec && FERMENT_TYPES[rec.type] ? FERMENT_TYPES[rec.type] : null;
 
+  const manifestoColor = typeInfo ? typeInfo.color : '#d8c3a5';
   return h('div',{ref:wrapRef,className:'canvas-wrap'},
     h('canvas',{ref:canvasRef}),
+    // MANIFIESTO centrado y grande sobre las burbujas; color = tipo de fermentación.
+    h('div',{className:'manifesto'+(phraseVisible?' on':''), style:{color:manifestoColor}},
+      h('span',{className:'manifesto-fixed'},'LA FERMENTACIÓN ES:'),
+      h('span',{className:'manifesto-phrase'}, ' '+MANIFESTO[phraseIdx])),
     // Leyenda de colores por variable (abajo-izquierda), con % y resaltado del dominante.
     h('div',{className:'legend'},
       VAR_COLORS.map(vc=>{
