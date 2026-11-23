@@ -631,9 +631,11 @@ function recommend(snap,localityId){
   const climateScore=Math.min(1,Math.max(0,(temperature+humidity)/2));
   const useFruit=(fruit+waste*0.4)>=(veg+waste*0.4);
   const pool=useFruit?BOGOTA_FRUIT:BOGOTA_VEG;
-  const seed=(snap.t/60000)%1; const choice=pool[Math.floor(seed*pool.length)%pool.length];
+  // El alimento recomendado rota en bloques de 30 s (avanza por el repertorio).
+  const slot30=Math.floor(snap.t/30000);
+  const choice=pool[slot30%pool.length];
   const home=v.homeSize!=null?v.homeSize:0.5;   // tamaño de vivienda 0..1
-  const craftSeed=(snap.t/90000)%1; const craft=craftFor(choice.product, craftSeed, home);
+  const craft=craftFor(choice.product, (slot30*0.37)%1, home);
   // HUERTA y PACA más cercanas a la localidad (por coordenadas).
   const garden=nearest(GARDENS, loc.lat, loc.lon);
   const paca=nearest(PACAS_LIST, loc.lat, loc.lon);
