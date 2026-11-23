@@ -28,7 +28,21 @@
   }
   nav.tabs button:hover { background: rgba(255,255,255,.05); color: #fff; }
   nav.tabs button.active { background: rgba(255,255,255,.10); color: #fff; }
+  .about-btn { border: 1px solid #26262e !important; color: #d8c3a5 !important; margin-left: 8px; }
+  .about-btn:hover { background: rgba(216,195,165,.1) !important; color: #f0e6d6 !important; }
   main { flex: 1; min-height: 0; }
+  /* Modal "Sobre la obra" */
+  .about-overlay { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.6);
+    display: flex; align-items: center; justify-content: center; padding: 24px; backdrop-filter: blur(2px); }
+  .about-modal { position: relative; max-width: 620px; width: 100%; max-height: 85vh; overflow-y: auto;
+    background: #121216; border: 1px solid #26262e; border-radius: 14px; padding: 28px 30px; }
+  .about-close { position: absolute; top: 12px; right: 14px; background: none; border: 0; color: #8a8a99;
+    font-size: 26px; line-height: 1; cursor: pointer; }
+  .about-close:hover { color: #fff; }
+  .about-title { margin: 0 0 14px; font-size: 1.4rem; color: #d8c3a5; }
+  .about-text { font-size: 14px; line-height: 1.75; color: #d5d5dc; margin: 0 0 12px; }
+  .about-src { font-family: ui-monospace, monospace; font-size: 11px; color: #8a8a99; margin-top: 6px;
+    border-top: 1px solid #26262e; padding-top: 10px; }
 
   /* Lectura */
   .reader { display: flex; height: 100%; }
@@ -1027,6 +1041,7 @@ function App(){
   const [focusChapter,setFocusChapter]=useState(null);
   const [activeKinds,setActiveKinds]=useState(new Set(ALL_KINDS));
   const [localityId,setLocalityId]=useState(DEFAULT_LOCALITY);
+  const [aboutOpen,setAboutOpen]=useState(false);
   const graph=useMemo(()=>buildGraph(THESIS),[]);
   const {snapshot,latest}=useLiveData(localityId);
   const selectedNode=graph.nodes.find(n=>n.id===selectedId)||null;
@@ -1036,8 +1051,10 @@ function App(){
   return h('div',{className:'app'},
     h('header',{className:'bar'},
       h('div',null,h('span',{className:'title'},THESIS.title),h('span',{className:'author'},THESIS.author)),
-      h('nav',{className:'tabs'},[['lectura','Lectura'],['red','Red'],['vivo','Datos en vivo']].map(([id,label])=>
-        h('button',{key:id,className:tab===id?'active':'',onClick:()=>setTab(id)},label)))),
+      h('nav',{className:'tabs'},
+        [['lectura','Lectura'],['red','Red'],['vivo','Datos en vivo']].map(([id,label])=>
+          h('button',{key:id,className:tab===id?'active':'',onClick:()=>setTab(id)},label)),
+        h('button',{key:'about',className:'about-btn',onClick:()=>setAboutOpen(true),title:'Sobre la obra'},'ℹ️ Sobre la obra'))),
     h('main',null,
       tab==='lectura'&&h(Reader,{focusChapter,onOpen:openInGraph}),
       tab==='red'&&h('div',{className:'split'},
@@ -1056,7 +1073,21 @@ function App(){
           h(ParticleField,{liveRef:latest,snapshot,localityId}),
           h('p',{className:'hint'},'Partículas efervescentes · clima real de Bogotá · burbujean con los cruces de datos')),
         h('aside',{className:'panel'},h(LivePanel,{snapshot,localityId})))
-    ));
+    ),
+    // Modal "Sobre la obra"
+    aboutOpen && h('div',{className:'about-overlay',onClick:()=>setAboutOpen(false)},
+      h('div',{className:'about-modal',onClick:e=>e.stopPropagation()},
+        h('button',{className:'about-close',onClick:()=>setAboutOpen(false),title:'Cerrar'},'×'),
+        h('h2',{className:'about-title'},'Sobre la obra'),
+        h('p',{className:'about-text'},
+          'Fermentación Doméstica es una página de artista que acompaña una investigación doctoral sobre la fermentación como práctica de cuidado, cruce y aprovechamiento de alimentos en el territorio de Bogotá. La obra cruza, en tiempo real, datos abiertos de la ciudad con saberes de fermentación para generar recomendaciones situadas.'),
+        h('p',{className:'about-text'},
+          'Al elegir una localidad de Bogotá, la página consulta en vivo la temperatura y la humedad reales de esa zona (Open-Meteo) y las combina con indicadores de densidad poblacional, vulnerabilidad y desperdicio de alimentos (DANE y datos abiertos distritales) para proponer qué fermentar, con qué técnica y de qué tipo (láctica, alcohólica, acética), una preparación avanzada (miso, garum, koji, kombucha, kéfir…), y la huerta urbana y la paca digestora más cercanas.'),
+        h('p',{className:'about-text'},
+          'Toda esta información cobra cuerpo en un campo de partículas efervescentes: cada burbuja representa una variable de los datos (cosecha, desperdicio, producción, fruta, verdura) y su color y proporción reflejan el estado del sistema alimentario, ascendiendo como una fermentación viva. Sobre ellas, un manifiesto despliega las frases de la tesis —LA FERMENTACIÓN ES…— que cambian al ritmo de la pieza y se tiñen del color de la fermentación recomendada.'),
+        h('p',{className:'about-src'},'Fuentes en vivo: Open-Meteo (clima). Datos de referencia: DANE, Datos Abiertos Bogotá, Jardín Botánico de Bogotá, Red Paquerxs Bogotá.')
+      ))
+  );
 }
 
 const __root = document.getElementById('root');
