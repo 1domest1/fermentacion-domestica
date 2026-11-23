@@ -918,6 +918,8 @@ function textToPoints(text, maxW, maxH){
   const data=octx.getImageData(0,0,w,hpx).data;
   const pts=[]; const step=3; // densidad del muestreo (menor = más denso/legible)
   for(let y=0;y<hpx;y+=step){ for(let x=0;x<w;x+=step){ if(data[(y*w+x)*4+3]>128) pts.push({x:x-w/2, y:y-hpx/2}); } }
+  // devolvemos también los datos para poder redibujar el TEXTO SÓLIDO encima
+  pts.meta={ lines, size, lineH, w, hpx };
   return pts;
 }
 
@@ -928,6 +930,10 @@ function ParticleField({liveRef,snapshot,localityId,zoneId}){
   // MANIFIESTO: índice de la frase actual + visibilidad (para el fundido).
   const [phraseIdx,setPhraseIdx]=useState(()=>Math.floor(Math.random()*MANIFESTO.length));
   const [phraseVisible,setPhraseVisible]=useState(true);
+  // Ref sincronizado: el bucle de animación (creado una sola vez) lee SIEMPRE
+  // el índice actual desde aquí, evitando el problema de clausura obsoleta.
+  const phraseIdxRef=useRef(phraseIdx);
+  phraseIdxRef.current=phraseIdx;
   useEffect(()=>{
     // cada 30 s: fundir fuera, elegir otra frase aleatoria (distinta), fundir dentro.
     const id=setInterval(()=>{
@@ -1026,14 +1032,15 @@ function ParticleField({liveRef,snapshot,localityId,zoneId}){
       // --- CAPA DE TEXTO-BURBUJAS: forman la FRASE COMPLETA del manifiesto y se
       // disuelven/reforman en cada cambio de frase. El color CAMBIA por frase.
       const st=textStateRef.current;
-      const fullText='LA FERMENTACIÓN ES: '+MANIFESTO[phraseIdx];
+      const curIdx=phraseIdxRef.current;   // SIEMPRE el índice actual (no la clausura)
+      const fullText='LA FERMENTACIÓN ES: '+MANIFESTO[curIdx];
       // paleta por la que rota el color del texto, un color por frase.
       const TEXT_HUES=[95,270,40,320,200,150,350,55,220];
-      const textHue=TEXT_HUES[phraseIdx%TEXT_HUES.length];
+      const textHue=TEXT_HUES[curIdx%TEXT_HUES.length];
       // (re)calcular puntos si cambió el ancho o la frase.
-      if(st.targetW!==w || st.phrase!==phraseIdx){
+      if(st.targetW!==w || st.phrase!==curIdx){
         const pts=textToPoints(fullText, Math.min(w*0.82, 760), hh*0.4);
-        st.points=pts; st.targetW=w; st.phrase=phraseIdx;
+        st.points=pts; st.targetW=w; st.phrase=curIdx;
         const tp=textPartsRef.current;
         while(tp.length<pts.length) tp.push({x:Math.random()*w,y:hh+10,vx:0,vy:0});
         tp.length=pts.length;
@@ -1259,13 +1266,11 @@ function App(){
         h('button',{className:'about-close',onClick:()=>setAboutOpen(false),title:'Cerrar'},'×'),
         h('h2',{className:'about-title'},'Sobre la obra'),
         h('p',{className:'about-text'},
-          'Fermentación Doméstica es una página de artista que acompaña una investigación doctoral sobre la fermentación como práctica de cuidado, cruce y aprovechamiento de alimentos en Bogotá. La obra cruza, en tiempo real, datos abiertos de la ciudad con saberes de fermentación para generar una recomendación situada que va de la escala del territorio a la del hogar.'),
+          'Co-elaboraciones de cuidados expandidos: circuito de fermentación doméstica es la página de artista que acompaña el proceso de investigación doctoral sobre la fermentación como práctica de cuidado, cruce de agencias y materias vivientes que se ensamblan e interrelacionan en un espacio doméstico. La obra cruza, en tiempo real, datos abiertos de la ciudad con saberes de fermentación para generar recomendaciones situadas.'),
         h('p',{className:'about-text'},
-          'Al elegir una localidad de Bogotá, la página consulta en vivo la temperatura y la humedad reales de esa zona (Open-Meteo) y las combina con indicadores de densidad poblacional, vulnerabilidad y desperdicio de alimentos (DANE y datos abiertos distritales). Con ese cruce propone qué fermentar, con qué técnica y de qué tipo bioquímico (láctica, alcohólica, acética), una preparación avanzada (miso, garum, koji, kombucha, kéfir…), un índice de prioridad de aprovechamiento, y la huerta urbana y la paca digestora más cercanas para conseguir excedente o compostar residuos.'),
+          'Al elegir una localidad de Bogotá, la página consulta en vivo la temperatura y la humedad reales de esa zona (Open-Meteo) y las combina con indicadores de densidad poblacional, vulnerabilidad y desperdicio de alimentos (DANE y datos abiertos distritales) para proponer qué fermentar, con qué técnica y de qué tipo (láctica, alcohólica, acética), una preparación avanzada (miso, garum, koji, kombucha, kéfir…), y la huerta urbana y la paca digestora más cercanas.'),
         h('p',{className:'about-text'},
-          'La recomendación aterriza en la casa: al indicar la zona doméstica (mesón, alacena, sobre la nevera o cuarto de ropas), la obra sugiere dónde ubicar el fermento según su luz, temperatura y ventilación, qué fermentos son ideales en ese rincón y una regla de cuidado. El letrero central traduce además el clima real de Bogotá en consejos prácticos de temperatura y humedad para mantener los fermentos activos.'),
-        h('p',{className:'about-text'},
-          'Todo cobra cuerpo en un campo de partículas efervescentes —burbujas de un amarillo cobre que ascienden y se acumulan como una fermentación viva— sobre el que las frases de la tesis, LA FERMENTACIÓN ES…, se forman con las propias burbujas, cambian de color y se disuelven y reorganizan con el pulso de la pieza.'),
+          'Toda esta información cobra cuerpo en un campo de partículas efervescentes: cada burbuja representa una variable de los datos (cosecha, desperdicio, producción, fruta, verdura) y su color y proporción reflejan el estado del sistema alimentario, ascendiendo como una fermentación viva. Sobre ellas, un manifiesto despliega las frases de la tesis —LA FERMENTACIÓN ES…— que cambian al ritmo de la pieza y se tiñen del color de la fermentación recomendada.'),
         h('p',{className:'about-src'},'Clima en vivo: Open-Meteo. Población en vivo: API-Colombia. Datos de referencia: DANE (pobreza, vivienda — Censo de Edificaciones), Datos Abiertos Bogotá, Jardín Botánico de Bogotá (huertas de agricultura urbana), Red Paquerxs Bogotá (pacas digestoras). Las frases del manifiesto son propiedad exclusiva de la autora.')
       ))
   );
