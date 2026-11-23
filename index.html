@@ -85,10 +85,14 @@
   .legend-dot { width: 9px; height: 9px; border-radius: 999px; display: inline-block; flex-shrink: 0; }
   .legend-lbl { min-width: 78px; }
   .legend-pct { color: #8a8a99; }
-  /* Etiqueta de la burbuja dominante (parte C) */
-  .bubble-tag { position: absolute; top: 48px; left: 50%; transform: translateX(-50%); z-index: 7;
-    background: rgba(10,10,12,.6); border: 1px solid #d8c3a5; border-radius: 10px; padding: 8px 14px; text-align: center;
-    backdrop-filter: blur(3px); pointer-events: none; max-width: 70%; }
+  /* Fila de dos recuadros flotantes arriba (recomendación | casa) */
+  .tag-row { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 7;
+    display: flex; gap: 10px; align-items: flex-start; justify-content: center; width: 94%;
+    pointer-events: none; }
+  .bubble-tag { flex: 1 1 0; max-width: 360px;
+    background: rgba(10,10,12,.62); border: 1px solid #d8c3a5; border-radius: 10px; padding: 8px 14px; text-align: center;
+    backdrop-filter: blur(3px); pointer-events: none; }
+  .home-tag { border-color: #9ece6a; }
   .bubble-tag-food { font-size: 16px; font-weight: 600; color: #f0e6d6; text-transform: capitalize; }
   .bubble-tag-sub { margin-top: 2px; font-family: ui-monospace, monospace; font-size: 11px; color: #cfcfd6; }
   .bubble-tag-climate { margin-top: 6px; padding-top: 6px; border-top: 1px solid #26262e; font-size: 11px; line-height: 1.45; color: #cfcfd6; }
@@ -135,8 +139,9 @@
     .toc { width: 100%; border-right: 0; border-bottom: 1px solid #26262e; max-height: 180px; }
     article.col { padding: 24px 18px; }
 
-    /* Letrero central y manifiesto más compactos */
-    .bubble-tag { top: 10px; max-width: 92%; padding: 7px 10px; }
+    /* Letrero central y manifiesto más compactos; recuadros apilados */
+    .tag-row { flex-direction: column; top: 8px; gap: 6px; width: 94%; }
+    .bubble-tag { max-width: 100%; padding: 7px 10px; }
     .bubble-tag-food { font-size: 14px; }
     .manifesto { width: 92%; }
     .manifesto-phrase { font-size: 19px; }
@@ -916,7 +921,7 @@ function textToPoints(text, maxW, maxH){
   return pts;
 }
 
-function ParticleField({liveRef,snapshot,localityId}){
+function ParticleField({liveRef,snapshot,localityId,zoneId}){
   const canvasRef=useRef(null),wrapRef=useRef(null),partsRef=useRef([]),rafRef=useRef(0),spawnAcc=useRef(0),collapseRef=useRef(0);
   const textPartsRef=useRef([]);      // capa extra: burbujas que forman el texto
   const textStateRef=useRef({mode:'idle', t0:0}); // forming | hold | dissolving
@@ -1096,18 +1101,28 @@ function ParticleField({liveRef,snapshot,localityId}){
           h('span',{className:'legend-lbl',style:{fontWeight:isDom?700:400}},vc.label),
           h('span',{className:'legend-pct'},pct+'%'));
       })),
-    // Etiqueta de la burbuja dominante: alimento + tipo de fermentación.
-    rec && h('div',{className:'bubble-tag', style:typeInfo?{borderColor:typeInfo.color}:null},
-      h('div',{className:'bubble-tag-food'},'🫙 '+rec.product),
-      h('div',{className:'bubble-tag-sub'}, rec.method + (typeInfo?(' · '+typeInfo.label):'')),
-      (()=>{ const adv=climateAdvice(snapshot&&snapshot.raw&&snapshot.raw.temperature?snapshot.raw.temperature.value:null);
-        return adv ? h('div',{className:'bubble-tag-climate',style:{color:adv.color}}, '🌡️ '+adv.text) : null; })(),
-      (()=>{ const adv=humidityAdvice(snapshot&&snapshot.raw&&snapshot.raw.humidity?snapshot.raw.humidity.value:null);
-        return adv ? h('div',{className:'bubble-tag-climate'},
-          h('div',{className:'hum-head'},
-            h('span',null,'💧 Humedad ',h('b',null,adv.pct+'%')),
-            h('span',{className:'hum-badge',style:{borderColor:adv.color,color:adv.color}},adv.level)),
-          h('div',{className:'hum-body'}, adv.effect+' '+adv.tip)) : null; })()),
+    // DOS recuadros flotando arriba, lado a lado: izq = recomendación, der = casa.
+    rec && h('div',{className:'tag-row'},
+      // IZQUIERDA: recomendación (alimento + técnica + tipo + clima + humedad)
+      h('div',{className:'bubble-tag', style:typeInfo?{borderColor:typeInfo.color}:null},
+        h('div',{className:'bubble-tag-food'},'🫙 '+rec.product),
+        h('div',{className:'bubble-tag-sub'}, rec.method + (typeInfo?(' · '+typeInfo.label):'')),
+        (()=>{ const adv=climateAdvice(snapshot&&snapshot.raw&&snapshot.raw.temperature?snapshot.raw.temperature.value:null);
+          return adv ? h('div',{className:'bubble-tag-climate',style:{color:adv.color}}, '🌡️ '+adv.text) : null; })(),
+        (()=>{ const adv=humidityAdvice(snapshot&&snapshot.raw&&snapshot.raw.humidity?snapshot.raw.humidity.value:null);
+          return adv ? h('div',{className:'bubble-tag-climate'},
+            h('div',{className:'hum-head'},
+              h('span',null,'💧 Humedad ',h('b',null,adv.pct+'%')),
+              h('span',{className:'hum-badge',style:{borderColor:adv.color,color:adv.color}},adv.level)),
+            h('div',{className:'hum-body'}, adv.effect+' '+adv.tip)) : null; })()),
+      // DERECHA: recomendación de casa (zona + condiciones + ideales + regla)
+      (()=>{ const zone=zoneById(zoneId); const rule=PLACEMENT_RULES[Math.floor(Date.now()/20000)%PLACEMENT_RULES.length];
+        return h('div',{className:'bubble-tag home-tag'},
+          h('div',{className:'bubble-tag-food',style:{fontSize:14}},'🏠 '+zone.name),
+          h('div',{className:'mono',style:{marginTop:3,fontSize:10,color:'#8a8a99',display:'flex',flexWrap:'wrap',justifyContent:'center',gap:'2px 8px'}},
+            h('span',null,zone.light),h('span',null,zone.temp),h('span',null,zone.air)),
+          h('div',{style:{marginTop:5,fontSize:12,lineHeight:1.4,color:'#cfcfd6'}},'🫙 Ideales: ',h('span',{style:{color:'#d8c3a5'}},zone.ferments)),
+          h('div',{className:'bubble-tag-climate',style:{color:'#e0af68'}},'⚠️ '+rule)); })()),
     // Hilo tenue que conecta la etiqueta con la masa superior de burbujas.
     rec && h('div',{className:'flow-thread', style:typeInfo?{background:`linear-gradient(to top, transparent, ${typeInfo.color})`}:null})
   );
@@ -1145,15 +1160,7 @@ function LivePanel({snapshot,localityId,zoneId}){
         h('p',{className:'mono muted',style:{marginTop:4,fontSize:10}},
           'vivienda '+rec.homeSizeM2+' m² ('+rec.locality+') · '+
           (rec.craft.footprint==='compact'?'preparación compacta, apta para espacios pequeños':'maduración amplia, requiere más espacio'))),
-      // DÓNDE UBICARLO EN CASA (zona doméstica elegida) + regla de cuidado
-      h('div',{style:{marginTop:10,border:'1px solid #26262e',borderRadius:8,padding:'8px 10px',background:'#0a0a0c'}},
-        h('div',{style:{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}},
-          h('span',{className:'mono',style:{fontSize:10,textTransform:'uppercase',letterSpacing:'.06em',color:'#9ece6a'}},'🏠 Dónde ubicarlo en casa'),
-          h('span',{style:{fontSize:13,fontWeight:600,color:'#f0e6d6'}},zone.name)),
-        h('div',{className:'mono muted',style:{marginTop:4,fontSize:10,display:'flex',flexWrap:'wrap',gap:'2px 10px'}},
-          h('span',null,zone.light),h('span',null,zone.temp),h('span',null,zone.air)),
-        h('p',{style:{marginTop:5,fontSize:12,lineHeight:1.5,color:'#cfcfd6'}},'🫙 Ideales aquí: ',h('span',{style:{color:'#d8c3a5'}},zone.ferments)),
-        h('p',{className:'mono',style:{marginTop:6,paddingTop:6,borderTop:'1px solid #1d1d24',fontSize:10,lineHeight:1.5,color:'#e0af68'}},'⚠️ '+rule)),
+      // (La tarjeta "Dónde ubicarlo en casa" se muestra ahora arriba, junto a la recomendación.)
       // Prioridad social: identifica zonas con alta población + hambre + desperdicio
       h('div',{style:{marginTop:10,paddingTop:10,borderTop:'1px solid #26262e'}},
         h('div',{style:{display:'flex',alignItems:'center',gap:8}},
@@ -1242,7 +1249,7 @@ function App(){
             h('select',{value:localityId,onChange:e=>setLocalityId(e.target.value)},LOCALITIES.map(l=>h('option',{key:l.id,value:l.id},l.name))),
             h('span',{className:'mono muted',style:{fontSize:11,textTransform:'uppercase',letterSpacing:'.06em',marginLeft:'6px'}},'Zona'),
             h('select',{value:zoneId,onChange:e=>setZoneId(e.target.value)},HOME_ZONES.map(z=>h('option',{key:z.id,value:z.id},z.name)))),
-          h(ParticleField,{liveRef:latest,snapshot,localityId}),
+          h(ParticleField,{liveRef:latest,snapshot,localityId,zoneId}),
           h('p',{className:'hint'},'Partículas efervescentes · clima real de Bogotá · burbujean con los cruces de datos')),
         h('aside',{className:'panel'},h(LivePanel,{snapshot,localityId,zoneId})))
     ),
@@ -1252,12 +1259,14 @@ function App(){
         h('button',{className:'about-close',onClick:()=>setAboutOpen(false),title:'Cerrar'},'×'),
         h('h2',{className:'about-title'},'Sobre la obra'),
         h('p',{className:'about-text'},
-          'Fermentación Doméstica es una página de artista que acompaña una investigación doctoral sobre la fermentación como práctica de cuidado, cruce y aprovechamiento de alimentos en el territorio de Bogotá. La obra cruza, en tiempo real, datos abiertos de la ciudad con saberes de fermentación para generar recomendaciones situadas.'),
+          'Fermentación Doméstica es una página de artista que acompaña una investigación doctoral sobre la fermentación como práctica de cuidado, cruce y aprovechamiento de alimentos en Bogotá. La obra cruza, en tiempo real, datos abiertos de la ciudad con saberes de fermentación para generar una recomendación situada que va de la escala del territorio a la del hogar.'),
         h('p',{className:'about-text'},
-          'Al elegir una localidad de Bogotá, la página consulta en vivo la temperatura y la humedad reales de esa zona (Open-Meteo) y las combina con indicadores de densidad poblacional, vulnerabilidad y desperdicio de alimentos (DANE y datos abiertos distritales) para proponer qué fermentar, con qué técnica y de qué tipo (láctica, alcohólica, acética), una preparación avanzada (miso, garum, koji, kombucha, kéfir…), y la huerta urbana y la paca digestora más cercanas.'),
+          'Al elegir una localidad de Bogotá, la página consulta en vivo la temperatura y la humedad reales de esa zona (Open-Meteo) y las combina con indicadores de densidad poblacional, vulnerabilidad y desperdicio de alimentos (DANE y datos abiertos distritales). Con ese cruce propone qué fermentar, con qué técnica y de qué tipo bioquímico (láctica, alcohólica, acética), una preparación avanzada (miso, garum, koji, kombucha, kéfir…), un índice de prioridad de aprovechamiento, y la huerta urbana y la paca digestora más cercanas para conseguir excedente o compostar residuos.'),
         h('p',{className:'about-text'},
-          'Toda esta información cobra cuerpo en un campo de partículas efervescentes: cada burbuja representa una variable de los datos (cosecha, desperdicio, producción, fruta, verdura) y su color y proporción reflejan el estado del sistema alimentario, ascendiendo como una fermentación viva. Sobre ellas, un manifiesto despliega las frases de la tesis —LA FERMENTACIÓN ES…— que cambian al ritmo de la pieza y se tiñen del color de la fermentación recomendada.'),
-        h('p',{className:'about-src'},'Fuentes en vivo: Open-Meteo (clima). Datos de referencia: DANE, Datos Abiertos Bogotá, Jardín Botánico de Bogotá, Red Paquerxs Bogotá.')
+          'La recomendación aterriza en la casa: al indicar la zona doméstica (mesón, alacena, sobre la nevera o cuarto de ropas), la obra sugiere dónde ubicar el fermento según su luz, temperatura y ventilación, qué fermentos son ideales en ese rincón y una regla de cuidado. El letrero central traduce además el clima real de Bogotá en consejos prácticos de temperatura y humedad para mantener los fermentos activos.'),
+        h('p',{className:'about-text'},
+          'Todo cobra cuerpo en un campo de partículas efervescentes —burbujas de un amarillo cobre que ascienden y se acumulan como una fermentación viva— sobre el que las frases de la tesis, LA FERMENTACIÓN ES…, se forman con las propias burbujas, cambian de color y se disuelven y reorganizan con el pulso de la pieza.'),
+        h('p',{className:'about-src'},'Clima en vivo: Open-Meteo. Población en vivo: API-Colombia. Datos de referencia: DANE (pobreza, vivienda — Censo de Edificaciones), Datos Abiertos Bogotá, Jardín Botánico de Bogotá (huertas de agricultura urbana), Red Paquerxs Bogotá (pacas digestoras). Las frases del manifiesto son propiedad exclusiva de la autora.')
       ))
   );
 }
