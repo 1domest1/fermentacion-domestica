@@ -327,6 +327,26 @@ const LOCALITIES = [
   { id:'suba', name:'Suba', lat:4.7560, lon:-74.0840, density:10000, poverty:30, homeSize:66 },
   { id:'bosa', name:'Bosa', lat:4.6180, lon:-74.1910, density:26000, poverty:48, homeSize:50 },
 ];
+// ZONAS DOMÉSTICAS (matriz de la tesis): dónde ubicar el fermento en casa
+// según luz, temperatura y aire. Cada zona sugiere fermentos ideales.
+const HOME_ZONES = [
+  { id:'meson', name:'Mesón de cocina', light:'Luz indirecta', temp:'Media (18–22 °C)', air:'Alta ventilación',
+    ferments:'Kéfir, masa madre, kombucha (F1)' },
+  { id:'alacena', name:'Alacena cerrada', light:'Oscuridad', temp:'Estable (18–20 °C)', air:'Baja ventilación',
+    ferments:'Chucrut, kimchi, encurtidos, vinagre' },
+  { id:'nevera', name:'Sobre la nevera', light:'Luz baja / media', temp:'Cálida (23–28 °C)', air:'Seco',
+    ferments:'Yogur, tempeh, iniciar masa madre' },
+  { id:'ropas', name:'Cuarto de ropas / sótano', light:'Luz baja', temp:'Fresca (12–16 °C)', air:'Media / alta',
+    ferments:'Miso, quesos, fermentos largos' },
+];
+const DEFAULT_ZONE='meson';
+const zoneById=(id)=>HOME_ZONES.find(z=>z.id===id)||HOME_ZONES[0];
+// Reglas de ubicación (rotan en la tarjeta).
+const PLACEMENT_RULES = [
+  'Cero sol directo: no pongas el frasco frente a una ventana soleada; el calor excesivo mata los probióticos y la luz UV destruye nutrientes.',
+  'Lejos de la basura y el compost: las esporas de moho del aire pueden contaminar un fermento abierto (kombucha, kéfir) si están muy cerca.',
+  'Separación entre cultivos: deja al menos 1 metro entre fermentos distintos (p. ej. masa madre y kombucha) para evitar contaminación cruzada de levaduras y bacterias.',
+];
 // Repertorio común de fermentación para clima andino frío (Bogotá). Cada
 // fermento con su TIPO bioquímico: alcoholica | lactica | acetica.
 const BOGOTA_FRUIT = [
@@ -1093,9 +1113,11 @@ function ParticleField({liveRef,snapshot,localityId}){
   );
 }
 
-function LivePanel({snapshot,localityId}){
+function LivePanel({snapshot,localityId,zoneId}){
   if(!snapshot) return h('div',{className:'pad muted',style:{fontSize:14}},h('p',{className:'mono',style:{textTransform:'uppercase',fontSize:12}},'Datos en vivo'),h('p',null,'Conectando con la fuente…'));
   const rec=recommend(snapshot,localityId);
+  const zone=zoneById(zoneId);
+  const rule=PLACEMENT_RULES[Math.floor(Date.now()/20000)%PLACEMENT_RULES.length]; // regla que rota ~cada 20s
   return h('div',{className:'pad'},
     h('p',{className:'mono muted',style:{fontSize:12,textTransform:'uppercase',letterSpacing:'.06em'}},'Fuente'),
     h('h2',{style:{marginTop:4,fontSize:18}},snapshot.sourceLabel),
@@ -1123,6 +1145,15 @@ function LivePanel({snapshot,localityId}){
         h('p',{className:'mono muted',style:{marginTop:4,fontSize:10}},
           'vivienda '+rec.homeSizeM2+' m² ('+rec.locality+') · '+
           (rec.craft.footprint==='compact'?'preparación compacta, apta para espacios pequeños':'maduración amplia, requiere más espacio'))),
+      // DÓNDE UBICARLO EN CASA (zona doméstica elegida) + regla de cuidado
+      h('div',{style:{marginTop:10,border:'1px solid #26262e',borderRadius:8,padding:'8px 10px',background:'#0a0a0c'}},
+        h('div',{style:{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}},
+          h('span',{className:'mono',style:{fontSize:10,textTransform:'uppercase',letterSpacing:'.06em',color:'#9ece6a'}},'🏠 Dónde ubicarlo en casa'),
+          h('span',{style:{fontSize:13,fontWeight:600,color:'#f0e6d6'}},zone.name)),
+        h('div',{className:'mono muted',style:{marginTop:4,fontSize:10,display:'flex',flexWrap:'wrap',gap:'2px 10px'}},
+          h('span',null,zone.light),h('span',null,zone.temp),h('span',null,zone.air)),
+        h('p',{style:{marginTop:5,fontSize:12,lineHeight:1.5,color:'#cfcfd6'}},'🫙 Ideales aquí: ',h('span',{style:{color:'#d8c3a5'}},zone.ferments)),
+        h('p',{className:'mono',style:{marginTop:6,paddingTop:6,borderTop:'1px solid #1d1d24',fontSize:10,lineHeight:1.5,color:'#e0af68'}},'⚠️ '+rule)),
       // Prioridad social: identifica zonas con alta población + hambre + desperdicio
       h('div',{style:{marginTop:10,paddingTop:10,borderTop:'1px solid #26262e'}},
         h('div',{style:{display:'flex',alignItems:'center',gap:8}},
@@ -1169,6 +1200,7 @@ function App(){
   const [focusChapter,setFocusChapter]=useState(null);
   const [activeKinds,setActiveKinds]=useState(new Set(ALL_KINDS));
   const [localityId,setLocalityId]=useState(DEFAULT_LOCALITY);
+  const [zoneId,setZoneId]=useState(DEFAULT_ZONE);
   const [aboutOpen,setAboutOpen]=useState(false);
   // Letrero "Sobre la obra" automático: se abre cada 5 min y dura 1 min visible,
   // para que el espectador entienda el funcionamiento sin pulsar el botón.
@@ -1207,10 +1239,12 @@ function App(){
         h('div',{className:'stage'},
           h('div',{className:'chip-row'},
             h('span',{className:'mono muted',style:{fontSize:11,textTransform:'uppercase',letterSpacing:'.06em'}},'Localidad'),
-            h('select',{value:localityId,onChange:e=>setLocalityId(e.target.value)},LOCALITIES.map(l=>h('option',{key:l.id,value:l.id},l.name)))),
+            h('select',{value:localityId,onChange:e=>setLocalityId(e.target.value)},LOCALITIES.map(l=>h('option',{key:l.id,value:l.id},l.name))),
+            h('span',{className:'mono muted',style:{fontSize:11,textTransform:'uppercase',letterSpacing:'.06em',marginLeft:'6px'}},'Zona'),
+            h('select',{value:zoneId,onChange:e=>setZoneId(e.target.value)},HOME_ZONES.map(z=>h('option',{key:z.id,value:z.id},z.name)))),
           h(ParticleField,{liveRef:latest,snapshot,localityId}),
           h('p',{className:'hint'},'Partículas efervescentes · clima real de Bogotá · burbujean con los cruces de datos')),
-        h('aside',{className:'panel'},h(LivePanel,{snapshot,localityId})))
+        h('aside',{className:'panel'},h(LivePanel,{snapshot,localityId,zoneId})))
     ),
     // Modal "Sobre la obra"
     aboutOpen && h('div',{className:'about-overlay',onClick:()=>setAboutOpen(false)},
