@@ -12,6 +12,8 @@
     background: #0a0a0c; color: #e7e7ea;
     font-family: Georgia, Cambria, 'Times New Roman', serif;
     -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;                 /* nunca scroll horizontal en móvil */
+    -webkit-text-size-adjust: 100%;     /* evita que iOS reescale el texto al rotar */
   }
   .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
   .app { display: flex; flex-direction: column; height: 100%; }
@@ -72,7 +74,9 @@
   .split { display: flex; height: 100%; align-items: stretch; }
   .stage { position: relative; min-width: 0; flex: 1; height: 100%; }
   .canvas-wrap { position: relative; min-width: 0; flex: 1; height: 100%; overflow: hidden; background: #0a0a0c; }
-  canvas { width: 100%; height: 100%; display: block; }
+  /* touch-action: pan-y permite desplazar la página verticalmente aunque el
+     dedo empiece sobre el canvas (clave en móvil para no "atrapar" el scroll). */
+  canvas { width: 100%; height: 100%; display: block; touch-action: pan-y; }
   aside.panel { width: 320px; flex-shrink: 0; border-left: 1px solid #26262e; background: #121216; overflow-y: auto; }
   .pad { padding: 20px; }
   .chip-row { position: absolute; left: 12px; top: 12px; z-index: 10; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
@@ -136,7 +140,10 @@
 
     /* Vistas de dos columnas -> apiladas en vertical */
     .split { flex-direction: column; height: auto; min-height: 100%; }
-    .stage { height: 60vh; min-height: 320px; flex: none; width: 100%; }
+    /* Alto del escenario: 60vh como base y 60dvh donde exista (dvh = alto
+       dinámico real del viewport), para que NO salte cuando la barra del
+       navegador aparece o desaparece en móvil. */
+    .stage { height: 60vh; height: 60dvh; min-height: 300px; max-height: 640px; flex: none; width: 100%; }
     aside.panel { width: 100%; border-left: 0; border-top: 1px solid #26262e; }
 
     /* Lectura: índice arriba, texto debajo */
@@ -150,12 +157,39 @@
     .bubble-tag-food { font-size: 14px; }
     .manifesto { width: 92%; }
     .manifesto-phrase { font-size: 19px; }
-    .legend { bottom: 10px; left: 8px; padding: 6px 8px; }
-    .legend-lbl { min-width: 64px; }
+    .legend { bottom: 10px; left: 8px; padding: 6px 8px; font-size: 10px; max-width: 46%; }
+    .legend-row { font-size: 10px; gap: 5px; }
+    .legend-lbl { min-width: 0; }
+    .legend-dot { width: 7px; height: 7px; }
+
+    /* Selectores (localidad / zona) compactos y acotados para no tapar el
+       escenario; se mantienen abajo-derecha sin solaparse con la leyenda. */
+    .selectors-br { right: 8px; bottom: 8px; gap: 6px; padding: 6px 8px; max-width: 50%; }
+    .selectors-br select { font-size: 11px; padding: 3px 6px; max-width: 46vw; }
+    .sel-item { font-size: 10px; }
+
+    /* Pista inferior izquierda: que no choque con la leyenda */
+    .hint { font-size: 10px; }
 
     /* Modal "Sobre la obra" ocupa casi toda la pantalla */
-    .about-modal { padding: 22px 20px; max-height: 90vh; }
+    .about-modal { padding: 22px 20px; max-height: 88vh; max-height: 88dvh; }
     .about-title { font-size: 1.2rem; }
+    .about-overlay { padding: 14px; }
+  }
+
+  /* Pantallas MUY estrechas (teléfonos pequeños / apps embebidas angostas) */
+  @media (max-width: 420px) {
+    .manifesto-phrase { font-size: 16px; }
+    .tag-row { width: 96%; top: 6px; }
+    .bubble-tag-food { font-size: 13px; }
+    .bubble-tag-climate { font-size: 10px; }
+    .stage { height: 56vh; height: 56dvh; min-height: 280px; }
+  }
+
+  /* Altura reducida en horizontal (móvil apaisado): evita que el escenario
+     ocupe toda la pantalla y deje el panel inaccesible. */
+  @media (max-width: 900px) and (max-height: 500px) and (orientation: landscape) {
+    .stage { height: 80vh; height: 80dvh; min-height: 220px; }
   }
   /* El scroll vertical general se habilita en móvil */
   @media (max-width: 760px) { html, body, #root { height: auto; min-height: 100%; } .app { min-height: 100%; } }
@@ -950,20 +984,33 @@ function ParticleField({liveRef,snapshot,localityId,zoneId}){
       setTimeout(()=>{
         setPhraseIdx(prev=>{ if(MANIFESTO.length<2) return prev; let n=prev; while(n===prev) n=Math.floor(Math.random()*MANIFESTO.length); return n; });
         setPhraseVisible(true);
-        // reformar: soltar las burbujas de texto desde abajo para que "suban" a la palabra
-        const wNow=(wrapRef.current&&wrapRef.current.clientWidth)||800;
-        const hNow=(wrapRef.current&&wrapRef.current.clientHeight)||600;
-        for(const b of textPartsRef.current){ b.x=Math.random()*wNow; b.y=hNow+10; b.vx=0; b.vy=0; }
+        // reformar SIN salto: las burbujas NO se teletransportan abajo; se quedan
+        // donde están (dispersas tras la disolución) y migran suavemente a la
+        // nueva forma. Solo reseteamos velocidades para que la atracción mande.
+        for(const b of textPartsRef.current){ b.vx=0; b.vy=0; }
         textStateRef.current.mode='forming';
         textStateRef.current.formedAt=performance.now();
-      },1600); // tiempo de disolución antes de reformar
-    },13500); // 2 s forma + 10 s quieta + 1,5 s disolución
+      },1800); // tiempo de disolución antes de reformar
+    },18500); // ~2,7 s transición + 14 s quieta
     return ()=>clearInterval(id);
   },[]);
   useEffect(()=>{
-    const resize=()=>{const c=canvasRef.current,w=wrapRef.current; if(!c||!w)return; const dpr=window.devicePixelRatio||1;
-      c.width=w.clientWidth*dpr; c.height=w.clientHeight*dpr; const ctx=c.getContext('2d'); if(ctx)ctx.setTransform(dpr,0,0,dpr,0,0);};
-    resize(); window.addEventListener('resize',resize); return ()=>window.removeEventListener('resize',resize);
+    // DIMENSIONADO ROBUSTO del canvas. En móvil/apps embebidas el alto del
+    // contenedor cambia (barra del navegador que entra/sale, rotación, teclado),
+    // y escuchar solo window.resize no basta. Un ResizeObserver sobre el wrapper
+    // reajusta el canvas ante CUALQUIER cambio de tamaño real del contenedor,
+    // manteniendo la visualización estable y sin deformar las burbujas.
+    const apply=()=>{const c=canvasRef.current,w=wrapRef.current; if(!c||!w)return;
+      const dpr=Math.min(window.devicePixelRatio||1, 2.5); // cap DPR: evita lag en móviles de pantalla muy densa
+      const cw=Math.max(1,Math.round(w.clientWidth)), ch=Math.max(1,Math.round(w.clientHeight));
+      if(c.width!==cw*dpr || c.height!==ch*dpr){ c.width=cw*dpr; c.height=ch*dpr; }
+      const ctx=c.getContext('2d'); if(ctx)ctx.setTransform(dpr,0,0,dpr,0,0);};
+    apply();
+    let ro=null;
+    if(typeof ResizeObserver!=='undefined' && wrapRef.current){ ro=new ResizeObserver(()=>apply()); ro.observe(wrapRef.current); }
+    window.addEventListener('resize',apply);
+    window.addEventListener('orientationchange',apply);
+    return ()=>{ if(ro)ro.disconnect(); window.removeEventListener('resize',apply); window.removeEventListener('orientationchange',apply); };
   },[]);
   useEffect(()=>{
     let prev=performance.now();
@@ -980,8 +1027,14 @@ function ParticleField({liveRef,snapshot,localityId,zoneId}){
       // NACIMIENTO: todas las burbujas en UN SOLO COLOR (amarillo cobre muy claro),
       // fondo sobrio para que el PROTAGONISMO cromático lo lleve el texto.
       const BUBBLE_HUE=44; // amarillo cobre
-      const rate=90+energy*320+eff.burst*300; spawnAcc.current+=rate*dt; const toSpawn=Math.floor(spawnAcc.current); spawnAcc.current-=toSpawn;
-      for(let i=0;i<toSpawn&&partsRef.current.length<5000;i++){
+      // DENSIDAD ADAPTATIVA: la tasa de nacimiento y el techo de partículas
+      // escalan con el ÁREA del canvas, de modo que en pantallas de móvil se
+      // generan menos burbujas. Así el flujo se ve igual de lleno pero mantiene
+      // la fluidez (sin bajones de FPS) en dispositivos pequeños.
+      const areaMul=Math.max(0.35, Math.min(1, (w*hh)/(1280*720)));
+      const maxParts=Math.round(5000*areaMul);
+      const rate=(90+energy*320+eff.burst*300)*areaMul; spawnAcc.current+=rate*dt; const toSpawn=Math.floor(spawnAcc.current); spawnAcc.current-=toSpawn;
+      for(let i=0;i<toSpawn&&partsRef.current.length<maxParts;i++){
         partsRef.current.push({
           x:Math.random()*w, y:hh+6,
           vx:(Math.random()-0.5)*(8+energy*22),
@@ -1001,7 +1054,7 @@ function ParticleField({liveRef,snapshot,localityId,zoneId}){
       // pero YA NO se pinta banda de color: el fondo queda de un solo color.
       let topCount=0; const topZone=hh*0.33;
       for(let i=0;i<ps.length;i++){ if(ps[i].y<topZone) topCount++; }
-      const saturation=Math.min(1, topCount/800);
+      const saturation=Math.min(1, topCount/(800*areaMul)); // umbral de colapso proporcional al área
       collapseRef.current += (saturation - collapseRef.current) * Math.min(1, dt*2.5);
       const collapse=collapseRef.current;
 
@@ -1067,8 +1120,8 @@ function ParticleField({liveRef,snapshot,localityId,zoneId}){
         ctx.fillStyle=`rgba(10,10,12,${0.5*fade})`;
         ctx.fillRect(0, cy-blockH/2, w, blockH);
       }
-      // ¿en fase de REPOSO? (pasados ~1.9 s desde que empezó a formarse)
-      const resting = !dissolving && st.formedAt && (now - st.formedAt) > 1900;
+      // ¿en fase de REPOSO? (se forma rápido: ~1.2 s y ya queda fija)
+      const resting = !dissolving && st.formedAt && (now - st.formedAt) > 1200;
       ctx.globalCompositeOperation='source-over';
       for(let i=0;i<tp.length;i++){
         const b=tp[i], tgt=pts[i];
@@ -1076,12 +1129,13 @@ function ParticleField({liveRef,snapshot,localityId,zoneId}){
           // DETENCIÓN: fijar la burbuja exactamente en su punto (quieta, nítida)
           b.x=cx+tgt.x; b.y=cy+tgt.y; b.vx=0; b.vy=0;
         } else if(!dissolving && tgt){
+          // FORMACIÓN fluida: atracción fuerte y suave (interpolación) hacia el punto
           const tx=cx+tgt.x, ty=cy+tgt.y;
-          b.vx += (tx-b.x)*7*dt; b.vy += (ty-b.y)*7*dt;
-          b.vx*=Math.pow(0.00005,dt); b.vy*=Math.pow(0.00005,dt);
-          b.x+=b.vx*dt; b.y+=b.vy*dt;
+          b.x += (tx-b.x)*Math.min(1, 9*dt);
+          b.y += (ty-b.y)*Math.min(1, 9*dt);
         } else {
-          b.vy -= 40*dt; b.vx += (Math.random()-0.5)*30*dt; b.vx*=Math.pow(0.4,dt);
+          // DISOLUCIÓN suave: ascienden y se dispersan sin tirón seco
+          b.vy -= 26*dt; b.vx += (Math.random()-0.5)*22*dt; b.vx*=Math.pow(0.5,dt);
           b.x+=b.vx*dt; b.y+=b.vy*dt;
         }
         const a = formed ? 0.96 : fade;
