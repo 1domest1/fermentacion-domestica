@@ -959,9 +959,9 @@ function ParticleField({liveRef,snapshot,localityId}){
       const homeV=vals.homeSize!=null?vals.homeSize:0.5;
       const sizeMul=0.8+homeV*0.6;
 
-      // NACIMIENTO: todas las burbujas en UN SOLO COLOR neutro (crema de acento),
-      // para que sean fondo sobrio y el PROTAGONISMO cromático lo lleve el texto.
-      const BUBBLE_HUE=38; // crema/ámbar tenue
+      // NACIMIENTO: todas las burbujas en UN SOLO COLOR (amarillo cobre muy claro),
+      // fondo sobrio para que el PROTAGONISMO cromático lo lleve el texto.
+      const BUBBLE_HUE=44; // amarillo cobre
       const rate=90+energy*320+eff.burst*300; spawnAcc.current+=rate*dt; const toSpawn=Math.floor(spawnAcc.current); spawnAcc.current-=toSpawn;
       for(let i=0;i<toSpawn&&partsRef.current.length<5000;i++){
         partsRef.current.push({
@@ -1009,10 +1009,10 @@ function ParticleField({liveRef,snapshot,localityId}){
         const k=1-p.life/p.maxLife;
         const alpha=Math.min(0.92, 0.22+up*0.6)*Math.min(1,k*3);
         const rr=p.r*(0.85+up*1.0);
-        // COLOR por altura: suave abajo (baja saturación, tono lavado) ->
-        // intenso arriba (alta saturación, color pleno).
-        const pSat=38+up*52;                 // 38% (suave) -> 90% (intenso)
-        const pLight=72-up*26+energy*6;      // 72% (claro/pálido) -> 46% (pleno)
+        // COLOR amarillo cobre MUY CLARO: baja saturación y luz alta en todo el
+        // recorrido (sube un poco hacia arriba sin perder claridad).
+        const pSat=30+up*22;                 // 30% -> 52% (siempre suave)
+        const pLight=84-up*14+energy*4;      // 84% (muy claro) -> ~70%
         ctx.beginPath();
         ctx.fillStyle=`hsla(${p.hue},${pSat}%,${pLight}%,${alpha})`;
         ctx.arc(p.x,p.y,rr,0,Math.PI*2); ctx.fill();
