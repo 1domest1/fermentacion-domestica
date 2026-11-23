@@ -836,7 +836,7 @@ function ParticleField({liveRef,snapshot,localityId}){
         setPhraseIdx(prev=>{ if(MANIFESTO.length<2) return prev; let n=prev; while(n===prev) n=Math.floor(Math.random()*MANIFESTO.length); return n; });
         setPhraseVisible(true);
       },1200); // dura el fundido de salida
-    },30000);
+    },15000);
     return ()=>clearInterval(id);
   },[]);
   useEffect(()=>{
