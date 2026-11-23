@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Fermentación Doméstica</title>
+<title>Co-elaboraciones de cuidados expandidos · Circuito de fermentación doméstica</title>
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }
@@ -78,6 +78,11 @@
   .chip-row { position: absolute; left: 12px; top: 12px; z-index: 10; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
   .chip { border: 1px solid; border-radius: 999px; padding: 4px 10px; font-size: 11px; cursor: pointer; font-family: ui-monospace, monospace; background: transparent; }
   .hint { position: absolute; bottom: 12px; left: 12px; font-family: ui-monospace, monospace; font-size: 11px; color: #8a8a99; pointer-events: none; }
+  /* Selectores (localidad / zona de la casa) en la esquina inferior derecha */
+  .selectors-br { position: absolute; right: 12px; bottom: 12px; z-index: 9;
+    display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; justify-content: flex-end;
+    background: rgba(10,10,12,.6); border: 1px solid #26262e; border-radius: 10px; padding: 8px 10px; backdrop-filter: blur(3px); }
+  .sel-item { display: flex; flex-direction: column; gap: 3px; }
   /* Leyenda de variables (parte B) */
   .legend { position: absolute; left: 12px; bottom: 34px; z-index: 6; display: flex; flex-direction: column; gap: 3px;
     background: rgba(10,10,12,.55); border: 1px solid #26262e; border-radius: 8px; padding: 8px 10px; backdrop-filter: blur(3px); }
@@ -244,7 +249,7 @@ const { useState, useMemo, useRef, useEffect, createElement: h, Fragment } = Rea
 // CONTENIDO DE LA TESIS — edita libremente. El grafo se autogenera de [[...]].
 // ===========================================================================
 const THESIS = {
-  title: 'Fermentación Doméstica',
+  title: 'Co-elaboraciones de cuidados expandidos: Circuito de fermentación doméstica',
   author: 'Miguel Angel Palencia',
   subtitle: 'Una investigación artística sobre clima, excedente y fermentación en el territorio colombiano',
   chapters: [
@@ -1259,11 +1264,13 @@ function App(){
         h('aside',{className:'panel'},h(NodePanel,{graph,node:selectedNode,onSelect:setSelectedId,onGoToChapter:cid=>{setFocusChapter(cid);setTab('lectura');}}))),
       tab==='vivo'&&h('div',{className:'split'},
         h('div',{className:'stage'},
-          h('div',{className:'chip-row'},
-            h('span',{className:'mono muted',style:{fontSize:11,textTransform:'uppercase',letterSpacing:'.06em'}},'Localidad'),
-            h('select',{value:localityId,onChange:e=>setLocalityId(e.target.value)},LOCALITIES.map(l=>h('option',{key:l.id,value:l.id},l.name))),
-            h('span',{className:'mono muted',style:{fontSize:11,textTransform:'uppercase',letterSpacing:'.06em',marginLeft:'6px'}},'Zona'),
-            h('select',{value:zoneId,onChange:e=>setZoneId(e.target.value)},HOME_ZONES.map(z=>h('option',{key:z.id,value:z.id},z.name)))),
+          h('div',{className:'selectors-br'},
+            h('div',{className:'sel-item'},
+              h('span',{className:'mono muted',style:{fontSize:10,textTransform:'uppercase',letterSpacing:'.06em'}},'Localidad'),
+              h('select',{value:localityId,onChange:e=>setLocalityId(e.target.value)},LOCALITIES.map(l=>h('option',{key:l.id,value:l.id},l.name)))),
+            h('div',{className:'sel-item'},
+              h('span',{className:'mono muted',style:{fontSize:10,textTransform:'uppercase',letterSpacing:'.06em'}},'Zona de la casa'),
+              h('select',{value:zoneId,onChange:e=>setZoneId(e.target.value)},HOME_ZONES.map(z=>h('option',{key:z.id,value:z.id},z.name))))),
           h(ParticleField,{liveRef:latest,snapshot,localityId,zoneId}),
           h('p',{className:'hint'},'Partículas efervescentes · clima real de Bogotá · burbujean con los cruces de datos')),
         h('aside',{className:'panel'},h(LivePanel,{snapshot,localityId,zoneId})))
