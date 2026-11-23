@@ -935,7 +935,8 @@ function ParticleField({liveRef,snapshot,localityId,zoneId}){
   const phraseIdxRef=useRef(phraseIdx);
   phraseIdxRef.current=phraseIdx;
   useEffect(()=>{
-    // cada 30 s: fundir fuera, elegir otra frase aleatoria (distinta), fundir dentro.
+    // Ciclo: la frase se forma, se DETIENE ~10 s quieta y legible, se disuelve
+    // y cambia por otra distinta. Total ~13,5 s por frase.
     const id=setInterval(()=>{
       setPhraseVisible(false);
       // disolver las burbujas del texto
@@ -949,8 +950,9 @@ function ParticleField({liveRef,snapshot,localityId,zoneId}){
         const hNow=(wrapRef.current&&wrapRef.current.clientHeight)||600;
         for(const b of textPartsRef.current){ b.x=Math.random()*wNow; b.y=hNow+10; b.vx=0; b.vy=0; }
         textStateRef.current.mode='forming';
+        textStateRef.current.formedAt=performance.now();
       },1600); // tiempo de disolución antes de reformar
-    },10000);
+    },13500); // 2 s forma + 10 s quieta + 1,5 s disolución
     return ()=>clearInterval(id);
   },[]);
   useEffect(()=>{
@@ -1060,17 +1062,23 @@ function ParticleField({liveRef,snapshot,localityId,zoneId}){
         ctx.fillStyle=`rgba(10,10,12,${0.5*fade})`;
         ctx.fillRect(0, cy-blockH/2, w, blockH);
       }
+      // ¿en fase de REPOSO? (pasados ~1.9 s desde que empezó a formarse)
+      const resting = !dissolving && st.formedAt && (now - st.formedAt) > 1900;
       ctx.globalCompositeOperation='source-over';
       for(let i=0;i<tp.length;i++){
         const b=tp[i], tgt=pts[i];
-        if(!dissolving && tgt){
+        if(resting && tgt){
+          // DETENCIÓN: fijar la burbuja exactamente en su punto (quieta, nítida)
+          b.x=cx+tgt.x; b.y=cy+tgt.y; b.vx=0; b.vy=0;
+        } else if(!dissolving && tgt){
           const tx=cx+tgt.x, ty=cy+tgt.y;
           b.vx += (tx-b.x)*7*dt; b.vy += (ty-b.y)*7*dt;
           b.vx*=Math.pow(0.00005,dt); b.vy*=Math.pow(0.00005,dt);
+          b.x+=b.vx*dt; b.y+=b.vy*dt;
         } else {
           b.vy -= 40*dt; b.vx += (Math.random()-0.5)*30*dt; b.vx*=Math.pow(0.4,dt);
+          b.x+=b.vx*dt; b.y+=b.vy*dt;
         }
-        b.x+=b.vx*dt; b.y+=b.vy*dt;
         const a = formed ? 0.96 : fade;
         // halo oscuro + punto opaco de color -> nitidez sobre el fondo
         ctx.beginPath(); ctx.fillStyle=`rgba(0,0,0,${0.5*a})`;
