@@ -631,8 +631,8 @@ function recommend(snap,localityId){
   const climateScore=Math.min(1,Math.max(0,(temperature+humidity)/2));
   const useFruit=(fruit+waste*0.4)>=(veg+waste*0.4);
   const pool=useFruit?BOGOTA_FRUIT:BOGOTA_VEG;
-  // El alimento recomendado rota en bloques de 30 s (avanza por el repertorio).
-  const slot30=Math.floor(snap.t/30000);
+  // El alimento recomendado rota en bloques de 60 s (avanza por el repertorio).
+  const slot30=Math.floor(snap.t/60000);
   const choice=pool[slot30%pool.length];
   const home=v.homeSize!=null?v.homeSize:0.5;   // tamaño de vivienda 0..1
   const craft=craftFor(choice.product, (slot30*0.37)%1, home);
@@ -838,7 +838,7 @@ function ParticleField({liveRef,snapshot,localityId}){
         setPhraseIdx(prev=>{ if(MANIFESTO.length<2) return prev; let n=prev; while(n===prev) n=Math.floor(Math.random()*MANIFESTO.length); return n; });
         setPhraseVisible(true);
       },1200); // dura el fundido de salida
-    },15000);
+    },10000);
     return ()=>clearInterval(id);
   },[]);
   useEffect(()=>{
