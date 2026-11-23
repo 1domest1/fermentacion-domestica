@@ -1014,7 +1014,7 @@ function ParticleField({liveRef,snapshot,localityId}){
         tp.length=pts.length;
       }
       const pts=st.points||[];
-      const cx=w/2, cy=hh*0.42;                 // centro del bloque de texto
+      const cx=w/2, cy=hh*0.52;                 // centro del bloque de texto (bajado para no solapar el letrero)
       const dissolving = st.mode==='dissolving';
       const tp=textPartsRef.current;
       const formed = !dissolving;
